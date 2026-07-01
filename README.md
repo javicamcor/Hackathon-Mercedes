@@ -1,4 +1,4 @@
-# AI FinOps Proxy — [Nombre de vuestro equipo]
+# AI FinOps Proxy — EigenMinds
 
 Bienvenido al repositorio central de nuestro proxy de FinOps para IA. 
 Este proyecto intercepta llamadas a modelos de IA, calcula sus costes, aplica límites de presupuesto y enruta dinámicamente las peticiones para optimizar el gasto.
@@ -18,7 +18,7 @@ Trabajamos con dos modelos locales servidos mediante Ollama, simulando dos prove
 
 Para avanzar en paralelo y evitar conflictos de código, el trabajo se divide en 4 módulos independientes:
 
-### 🛡️ 1. El Guardián (Core Proxy) -> Asignado a: [Nombre 1]
+### 🛡️ 1. El Guardián (Core Proxy) -> Asignado a: Juan Manuel Díaz Guardia
 **Objetivo:** Crear la puerta de entrada de todas las peticiones (el interceptor).
 * **Stack:** Python + FastAPI.
 * **Tareas:**
@@ -28,7 +28,7 @@ Para avanzar en paralelo y evitar conflictos de código, el trabajo se divide en
   * Llamar al Enrutador para obtener la respuesta de la IA.
   * Devolver el JSON final al usuario exactamente con el formato de OpenAI.
 
-### 📊 2. El Contable (Base de Datos) -> Asignado a: [Nombre 2]
+### 📊 2. El Contable (Base de Datos) -> Asignado a: Javier Campos Córcoles
 **Objetivo:** Persistir presupuestos, consumidores y registrar cada céntimo gastado.
 * **Stack:** Python + SQLite.
 * **Tareas:**
@@ -37,7 +37,7 @@ Para avanzar en paralelo y evitar conflictos de código, el trabajo se divide en
   * Crear tabla `logs` (id, consumer_id, modelo_usado, prompt_tokens, completion_tokens, coste_total, timestamp).
   * Programar funciones: `check_budget(consumer_id)`, `update_spend(consumer_id, cost)` y `log_request(...)`.
 
-### 🧠 3. El Cerebro (Enrutamiento IA) -> Asignado a: [Nombre 3]
+### 🧠 3. El Cerebro (Enrutamiento IA) -> Asignado a: Hugo Enriquez Jimenez
 **Objetivo:** Decidir qué modelo usar en cada momento y conectarse a Ollama.
 * **Stack:** Python + `requests`.
 * **Tareas:**
@@ -46,7 +46,7 @@ Para avanzar en paralelo y evitar conflictos de código, el trabajo se divide en
   * Implementar **Criterio 2 (FinOps):** Si el usuario ha consumido >90% de su presupuesto, forzar la caída a `llama3.2:3b` sin importar la complejidad del prompt (degradación controlada).
   * Enviar el request HTTP a las URLs de Ollama y devolver el JSON de respuesta al Guardián.
 
-### 📈 4. El Narrador (Dashboard FinOps) -> Asignado a: [Nombre 4]
+### 📈 4. El Narrador (Dashboard FinOps) -> Asignado a: Jose Antonio Ponce Cerón
 **Objetivo:** Dar visibilidad a los gastos y justificar el ahorro para la demo.
 * **Stack:** Python + Streamlit.
 * **Tareas:**
