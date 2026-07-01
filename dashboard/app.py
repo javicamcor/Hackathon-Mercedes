@@ -16,75 +16,113 @@ st.set_page_config(
 # --- Estilos Personalizados (CSS) ---
 st.markdown("""
 <style>
-    /* Tipografía moderna y fondo oscuro premium */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+    /* Tipografía ultra moderna (Outfit) */
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
     
     html, body, [class*="css"] {
-        font-family: 'Inter', sans-serif;
+        font-family: 'Outfit', sans-serif;
     }
     
+    /* Fondo oscuro premium con gradiente radial */
     .stApp {
-        background-color: #0f172a;
+        background: radial-gradient(circle at top left, #1e1b4b, #0f172a 40%, #020617 100%);
         color: #f8fafc;
     }
     
-    /* Tarjetas de métricas con Glassmorphism */
-    .metric-card {
-        background: rgba(30, 41, 59, 0.7);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 16px;
-        padding: 24px;
-        text-align: center;
-        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
-        transition: transform 0.3s ease;
-        margin-bottom: 2rem;
-    }
-    
-    .metric-card:hover {
-        transform: translateY(-5px);
-    }
-    
-    .metric-value {
-        font-size: 2.5rem;
-        font-weight: 800;
-        background: linear-gradient(90deg, #38bdf8, #818cf8);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 8px;
-    }
-    
-    .metric-label {
-        font-size: 1rem;
-        color: #94a3b8;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-    
-    .savings-value {
-        background: linear-gradient(90deg, #34d399, #10b981);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-    }
-    
+    /* Headers espectaculares */
     .header-title {
-        font-size: 3.5rem;
+        font-size: 4.5rem;
         font-weight: 800;
         text-align: center;
-        background: linear-gradient(90deg, #f8fafc, #94a3b8);
+        background: linear-gradient(135deg, #ffffff 0%, #94a3b8 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        margin-bottom: 0.5rem;
-        padding-top: 1rem;
+        margin-bottom: 0.2rem;
+        padding-top: 2rem;
+        letter-spacing: -1px;
     }
     
     .header-subtitle {
         text-align: center;
-        color: #64748b;
+        color: #94a3b8;
         font-size: 1.2rem;
-        margin-bottom: 3rem;
+        font-weight: 300;
+        margin-bottom: 4rem;
+        letter-spacing: 0.5px;
+    }
+    
+    /* Glassmorphism en tarjetas de métricas */
+    .metric-card {
+        background: rgba(30, 41, 59, 0.4);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 24px;
+        padding: 32px 24px;
+        text-align: center;
+        box-shadow: 0 10px 40px -10px rgba(0,0,0,0.5);
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    /* Efecto de brillo (shine) al pasar el ratón */
+    .metric-card::before {
+        content: '';
+        position: absolute;
+        top: 0; left: -100%;
+        width: 50%; height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+        transition: 0.5s;
+    }
+    
+    .metric-card:hover {
+        transform: translateY(-8px) scale(1.02);
+        border: 1px solid rgba(139, 92, 246, 0.3);
+        box-shadow: 0 20px 40px -10px rgba(139, 92, 246, 0.2);
+    }
+    
+    .metric-card:hover::before {
+        left: 100%;
+    }
+    
+    /* Valores de métricas con gradientes */
+    .metric-value {
+        font-size: 3.5rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #a78bfa, #818cf8, #38bdf8);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 12px;
+        line-height: 1.2;
+    }
+    
+    .metric-label {
+        font-size: 0.95rem;
+        color: #cbd5e1;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+    }
+    
+    .savings-value {
+        background: linear-gradient(135deg, #34d399, #10b981, #059669);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    /* Mejoras en las pestañas de Streamlit */
+    div[data-testid="stTabs"] button {
+        font-size: 1.1rem;
+        font-weight: 600;
+        padding-bottom: 1rem;
+    }
+    
+    /* Separadores sutiles */
+    hr {
+        border-color: rgba(255,255,255,0.05);
+        margin: 3rem 0;
     }
 </style>
 """, unsafe_allow_html=True)
