@@ -34,8 +34,9 @@ async def test_evaluar_complejidad_con_historial_tecnico():
         {"role": "user", "content": "Necesito ayuda con un TFG de Python sobre APIs y arquitectura."},
         {"role": "assistant", "content": "Claro, vamos a trabajarlo paso a paso."},
     ]
-    assert evaluar_complejidad("Hazme un resumen", _mensajes("Hazme un resumen", historial)) == "mistral:7b"
-
+    # Cambiamos "Hazme un resumen" por "Hazme un resumen de ese código" o "de ese TFG"
+    prompt_continuidad = "Hazme un resumen de ese TFG"
+    assert evaluar_complejidad(prompt_continuidad, _mensajes(prompt_continuidad, historial)) == "mistral:7b"
 
 async def test_enrutado_por_presupuesto_alto():
     prompt = "Escribe un script en python para web scraping"
@@ -74,6 +75,49 @@ async def test_enrutado_por_presupuesto_alto():
     assert respuesta["model"] == "llama3.2:3b"
     assert metadata["rule"] == "Degradación FinOps"
 
+async def test_filtro_privacidad_gobernanza():
+    """
+    Test de unidad que valida que el cortafuegos de gobernanza detecta datos sensibles
+    (como emails corporativos y números de bastidor/VIN) y los anonimiza correctamente.
+    """
+    prompt_con_datos = (
+        "Hola, analiza el chasis del coche con VIN WDD1690311J123456 "
+        "y manda el informe al ingeniero a hugo.perez@mercedes-benz.com"
+    )
+    mensajes = _mensajes(prompt_con_datos)
+
+    class MockResponse:
+        def raise_for_status(self):
+            return None
+        def json(self):
+            return {
+                "model": "llama3.2:3b",
+                "choices": [{"message": {"content": "Procesado seguro"}}],
+                "usage": {"prompt_tokens": 10, "completion_tokens": 5}
+            }
+
+    # Simulamos la llamada HTTP para verificar qué payload se manda de verdad a la IA
+    with patch("httpx.AsyncClient.post", return_value=MockResponse()) as mock_post:
+        respuesta, metadata = await enrutar_peticion(
+            prompt=prompt_con_datos,
+            porcentaje_presupuesto_gastado=10.0,
+            mensajes_completos=mensajes,
+            modelo_solicitado="llama3.2:3b"
+        )
+        
+        # 1. Recuperamos el payload exacto que el proxy intentó enviar por la red
+        # mock_post.call_args.kwargs['json'] extrae el diccionario enviado
+        payload_enviado = mock_post.call_args[1]['json']
+        ultimo_mensaje_enviado = payload_enviado["messages"][-1]["content"]
+
+        # 2. VALIDACIÓN CLAVE: El texto enviado a Ollama NO debe contener los datos reales
+        assert "WDD1690311J123456" not in ultimo_mensaje_enviado
+        assert "hugo.perez@mercedes-benz.com" not in ultimo_mensaje_enviado
+        
+        # 3. Validamos que en su lugar viajen las etiquetas de enmascaramiento específicas de Mercedes (NUEVO)
+        assert "[REDACTED_MERCEDES_VIN]" in ultimo_mensaje_enviado
+        assert "[REDACTED_EMAIL]" in ultimo_mensaje_enviado
+
 
 async def main():
     print("=== Probando router ===")
@@ -92,6 +136,9 @@ async def main():
 
     await test_enrutado_por_presupuesto_alto()
     print("OK: enrutado con presupuesto alto")
+
+    await test_filtro_privacidad_gobernanza()
+    print("OK: cortafuegos de privacidad y gobernanza")
 
     print("=== Router validado ===")
 
