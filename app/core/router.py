@@ -1,6 +1,9 @@
 import asyncio
 import logging
 import re
+import unicodedata
+import math
+from typing import Any, Dict, List, Tuple
 
 import httpx
 
@@ -62,32 +65,109 @@ PALABRAS_COMPLEJAS = {
     "gdpr", "criptografía", "encriptación", "estratégico", "financiero", "balance"
 }
 
+
+def _normalizar_texto(texto: str) -> str:
+    texto_normalizado = unicodedata.normalize("NFKD", texto.lower())
+    texto_sin_tildes = "".join(caracter for caracter in texto_normalizado if not unicodedata.combining(caracter))
+    return texto_sin_tildes
+
+
+def _detectar_modelo(prompt: str) -> Tuple[str, str]:
+    """
+    Devuelve el modelo elegido y una razón corta de la decisión.
+    """
+    prompt_normalizado = _normalizar_texto(prompt)
+
+    # 1. Extraer palabras ignorando signos de puntuación y tildes
+    palabras_usuario = set(re.findall(r"\b\w+\b", prompt_normalizado))
+    palabras_encontradas = palabras_usuario.intersection(PALABRAS_COMPLEJAS)
+
+    if palabras_encontradas:
+        logger.info("Tarea técnica detectada (Palabras: %s). Modelo óptimo: mistral:7b", palabras_encontradas)
+        return "mistral:7b", "palabras_clave"
+
+    # 2. Fallback por longitud
+    UMBRAL_CARACTERES = 400
+    if len(prompt_normalizado) > UMBRAL_CARACTERES:
+        logger.info("Prompt largo sin palabras clave (%s chars). Modelo óptimo: mistral:7b", len(prompt_normalizado))
+        return "mistral:7b", "longitud"
+
+    # 3. Por defecto: tarea conversacional
+    logger.info("Tarea conversacional simple. Modelo óptimo: llama3.2:3b")
+    return "llama3.2:3b", "simple"
+
+
+def estimar_tokens_prompt(prompt: str) -> int:
+    """
+    Estima cuántos tokens consume un prompt antes de enviarlo al proveedor.
+
+    Es una aproximación simple basada en longitud del texto, útil para
+    mostrar coste estimado por prompt antes de recibir la respuesta real.
+    """
+    prompt_normalizado = _normalizar_texto(prompt)
+    return max(1, math.ceil(len(prompt_normalizado) / 4))
+
+
+def _obtener_tarifas(modelo: str) -> Dict[str, float]:
+    return PRECIOS.get(modelo, {"entrada": 0.0, "salida": 0.0})
+
+
+def _calcular_costes(modelo: str, prompt_tokens: int, completion_tokens: int) -> Dict[str, float]:
+    tarifas = _obtener_tarifas(modelo)
+    coste_prompt = (prompt_tokens * tarifas["entrada"]) / 1_000_000
+    coste_completion = (completion_tokens * tarifas["salida"]) / 1_000_000
+    return {
+        "prompt_cost": coste_prompt,
+        "completion_cost": coste_completion,
+        "total_cost": coste_prompt + coste_completion,
+    }
+
+
+def estimar_coste_prompt(prompt: str, modelo: str) -> float:
+    """
+    Estima el coste de entrada del prompt para un modelo concreto.
+    """
+    prompt_tokens = estimar_tokens_prompt(prompt)
+    return _calcular_costes(modelo, prompt_tokens, 0)["prompt_cost"]
+
+
+def estimar_completion_tokens(prompt: str) -> int:
+    """
+    Estima cuántos tokens podría generar la respuesta.
+
+    Es una heurística simple para tener una estimación total antes de recibir
+    la respuesta real del proveedor.
+    """
+    prompt_tokens = estimar_tokens_prompt(prompt)
+    return max(16, math.ceil(prompt_tokens * 0.75))
+
+
+def estimar_coste_total(prompt: str, modelo: str) -> Dict[str, float]:
+    """
+    Estima el coste total aproximado del prompt más la respuesta.
+    """
+    prompt_tokens = estimar_tokens_prompt(prompt)
+    completion_tokens = estimar_completion_tokens(prompt)
+    costes = _calcular_costes(modelo, prompt_tokens, completion_tokens)
+    return {
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens_estimados": completion_tokens,
+        "prompt_cost": costes["prompt_cost"],
+        "completion_cost": costes["completion_cost"],
+        "total_cost": costes["total_cost"],
+    }
+
+
 def evaluar_complejidad(prompt: str) -> str:
     """
     CRITERIO 1: Evalúa la complejidad mediante análisis semántico (O(n)).
     Busca intersecciones entre las palabras del usuario y nuestro diccionario.
     """
-    # 1. Extraer palabras en minúsculas ignorando signos de puntuación
-    palabras_usuario = set(re.findall(r'\b\w+\b', prompt.lower()))
+    modelo, _ = _detectar_modelo(prompt)
+    return modelo
 
-    # 2. Intersección con el diccionario técnico
-    palabras_encontradas = palabras_usuario.intersection(PALABRAS_COMPLEJAS)
 
-    if palabras_encontradas:
-        logger.info("Tarea técnica detectada (Palabras: %s). Modelo óptimo: mistral:7b", palabras_encontradas)
-        return "mistral:7b"
-
-    # 3. Fallback por longitud (Si es inusualmente largo, requiere más contexto)
-    UMBRAL_CARACTERES = 400
-    if len(prompt) > UMBRAL_CARACTERES:
-        logger.info("Prompt largo sin palabras clave (%s chars). Modelo óptimo: mistral:7b", len(prompt))
-        return "mistral:7b"
-
-    # 4. Por defecto: Tarea conversacional
-    logger.info("Tarea conversacional simple. Modelo óptimo: llama3.2:3b")
-    return "llama3.2:3b"
-
-async def enrutar_peticion(prompt: str, porcentaje_presupuesto_gastado: float, mensajes_completos: list) -> dict:
+async def enrutar_peticion(prompt: str, porcentaje_presupuesto_gastado: float, mensajes_completos: List[Dict[str, str]]) -> Dict[str, Any]:
     """
     Función principal de El Cerebro (Módulo 3).
     Decide el modelo, aplica políticas FinOps de ahorro y gestiona la llamada HTTP asíncrona.
@@ -95,14 +175,19 @@ async def enrutar_peticion(prompt: str, porcentaje_presupuesto_gastado: float, m
     logger.info("Evaluando enrutamiento. Gasto actual del consumidor: %.2f%%", porcentaje_presupuesto_gastado)
 
     # 1. Aplicar Criterio 1: Complejidad del prompt (Ahora con palabras clave)
-    modelo_elegido = evaluar_complejidad(prompt)
+    modelo_elegido, motivo_ruta = _detectar_modelo(prompt)
     url_destino = PROVEEDOR_A_URL if modelo_elegido == "llama3.2:3b" else PROVEEDOR_B_URL
+    proveedor_destino = "provider-a" if modelo_elegido == "llama3.2:3b" else "provider-b"
+    degradado_por_finops = False
+    estimacion_costes = estimar_coste_total(prompt, modelo_elegido)
 
     # 2. Aplicar Criterio 2: FinOps (Degradación controlada de servicio por presupuesto crítico)
     if porcentaje_presupuesto_gastado >= 90.0 and modelo_elegido == "mistral:7b":
         logger.warning("Alerta FinOps: consumo >= 90%%. Forzando degradación a llama3.2:3b para mitigar costes.")
         modelo_elegido = "llama3.2:3b"
         url_destino = PROVEEDOR_A_URL
+        proveedor_destino = "provider-a"
+        degradado_por_finops = True
 
     # 3. Construir el cuerpo de la petición (Payload) compatible con OpenAI / Ollama
     payload = {
@@ -119,8 +204,21 @@ async def enrutar_peticion(prompt: str, porcentaje_presupuesto_gastado: float, m
             respuesta = await client.post(url_destino, json=payload, timeout=30.0)
             respuesta.raise_for_status()
 
-            # Devolvemos el JSON tal cual responde Ollama
-            return respuesta.json()
+            respuesta_json = respuesta.json()
+            respuesta_json["router"] = {
+                "provider": proveedor_destino,
+                "model": modelo_elegido,
+                "degraded_by_finops": degradado_por_finops,
+                "routing_reason": motivo_ruta,
+                "estimated_prompt_tokens": estimacion_costes["prompt_tokens"],
+                "estimated_completion_tokens": estimacion_costes["completion_tokens_estimados"],
+                "estimated_prompt_cost": estimacion_costes["prompt_cost"],
+                "estimated_completion_cost": estimacion_costes["completion_cost"],
+                "estimated_total_cost": estimacion_costes["total_cost"],
+            }
+
+            # Devolvemos la respuesta del proveedor con metadata adicional de ruta
+            return respuesta_json
 
     except httpx.HTTPStatusError as e:
         logger.exception("El proveedor de IA devolvió un error de estado")

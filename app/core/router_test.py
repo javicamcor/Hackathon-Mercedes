@@ -1,7 +1,7 @@
 import asyncio
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import Mock, patch
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 
@@ -14,6 +14,10 @@ async def test_evaluar_complejidad_simple():
 
 async def test_evaluar_complejidad_tecnica():
     assert evaluar_complejidad("Escribe un script en python para web scraping") == "mistral:7b"
+
+
+async def test_evaluar_complejidad_tecnica_con_tildes():
+    assert evaluar_complejidad("Analiza la complejidad de una función asíncrona en Python") == "mistral:7b"
 
 
 async def test_enrutado_por_presupuesto_alto():
@@ -31,7 +35,11 @@ async def test_enrutado_por_presupuesto_alto():
             mensajes_completos=mensajes,
         )
 
-    assert respuesta == {"ok": True}
+    assert respuesta["ok"] is True
+    assert respuesta["router"]["provider"] == "provider-a"
+    assert respuesta["router"]["model"] == "llama3.2:3b"
+    assert respuesta["router"]["degraded_by_finops"] is True
+    assert respuesta["router"]["routing_reason"] == "palabras_clave"
     assert mock_post.called
 
 
@@ -43,6 +51,9 @@ async def main():
 
     await test_evaluar_complejidad_tecnica()
     print("OK: complejidad técnica")
+
+    await test_evaluar_complejidad_tecnica_con_tildes()
+    print("OK: complejidad técnica con tildes")
 
     await test_enrutado_por_presupuesto_alto()
     print("OK: enrutado con presupuesto alto")
