@@ -127,6 +127,14 @@ if conn:
             timestamp 
         FROM logs
     """, conn)
+    
+    # Obtener Alertas si la tabla existe
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='alerts'")
+    if cursor.fetchone():
+        df_alerts = pd.read_sql_query("SELECT id, consumer_name, message, timestamp FROM alerts ORDER BY timestamp DESC", conn)
+    else:
+        df_alerts = pd.DataFrame(columns=["id", "consumer_name", "message", "timestamp"])
+        
     conn.close()
     
     # Convertir timestamp a datetime para gráficas temporales
@@ -181,6 +189,15 @@ peticiones_optimizadas = len(df_logs[df_logs["regla_aplicada"] != "Ninguna"]) if
 st.markdown("<h1 class='header-title'>AI FinOps Proxy</h1>", unsafe_allow_html=True)
 st.markdown("<p class='header-subtitle'>Control de Gastos, Optimización y Gobernanza de IA Generativa</p>", unsafe_allow_html=True)
 
+# --- Mostrar Alertas Recientes (Top 3) ---
+if not df_alerts.empty:
+    with st.expander("🚨 Notificaciones de Alertas Recientes", expanded=True):
+        for idx, row in df_alerts.head(3).iterrows():
+            if "BLOQUEO" in row['message']:
+                st.error(f"**{row['timestamp']}**: {row['message']}")
+            else:
+                st.warning(f"**{row['timestamp']}**: {row['message']}")
+
 # 1. Tarjetas de Métricas Superiores
 col1, col2, col3 = st.columns(3)
 
@@ -211,7 +228,7 @@ with col3:
 st.write("---")
 
 # TABS PRINCIPALES
-tab1, tab2, tab3 = st.tabs(["📊 Visión General", "📈 Predicciones de Gasto", "🧾 Auditoría e Impacto"])
+tab1, tab2, tab3, tab4 = st.tabs(["📊 Visión General", "📈 Predicciones de Gasto", "🧾 Auditoría e Impacto", "🚨 Alertas FinOps"])
 
 with tab1:
     st.subheader("Control de Presupuesto por Equipo")
@@ -361,3 +378,20 @@ with tab3:
                 "ahorro_generado": st.column_config.NumberColumn("Ahorro ($)", format="%.5f")
             }
         )
+
+with tab4:
+    st.subheader("Registro Histórico de Alertas")
+    st.markdown("Todas las notificaciones y bloqueos generados por el sistema de control de presupuesto.")
+    if not df_alerts.empty:
+        st.dataframe(
+            df_alerts, 
+            use_container_width=True,
+            column_config={
+                "id": "ID Alerta",
+                "consumer_name": "Equipo Consumidor",
+                "message": "Mensaje de Alerta",
+                "timestamp": st.column_config.DatetimeColumn("Fecha y Hora", format="DD/MM/YYYY HH:mm:ss")
+            }
+        )
+    else:
+        st.info("✅ No hay alertas registradas en el sistema. Todos los equipos están dentro de su presupuesto.")

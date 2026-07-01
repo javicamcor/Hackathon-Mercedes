@@ -44,6 +44,16 @@ def init_db():
                    )
                    ''')
 
+    # NUEVA TABLA: Alertas FinOps
+    cursor.execute('''
+                   CREATE TABLE IF NOT EXISTS alerts (
+                                                         id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                                         consumer_name TEXT,
+                                                         message TEXT,
+                                                         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+                   )
+                   ''')
+
     conn.commit()
     conn.close()
     print("Base de datos inicializada")
@@ -108,6 +118,18 @@ def log_usage(consumer_name, requested_model, provider_model, prompt_tokens, com
     conn.commit()
     conn.close()
     print(f"💰 Log guardado: {consumer_name} gastó ${cost:.6f} en {provider_model}")
+
+def log_alert(consumer_name, message):
+    """Registra una alerta en la base de datos."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute('''
+                   INSERT INTO alerts (consumer_name, message)
+                   VALUES (?, ?)
+                   ''', (consumer_name, message))
+    conn.commit()
+    conn.close()
+    print(f"🚨 Alerta guardada en BD para {consumer_name}: {message}")
 
 # --- FUNCIONES DE CACHÉ ---
 
