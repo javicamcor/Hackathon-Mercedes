@@ -279,7 +279,6 @@ with tab1:
                 mode = "gauge+number+delta",
                 value = row["gasto_actual"],
                 title = {'text': f"<b style='font-size: 18px; color: #ffffff;'>{row['nombre']}</b><br><span style='color: #94a3b8; font-size:0.8em'>ID: {row['id']}</span>"},
-                title = {'text': f"<b style='font-size: 18px; color: #ffffff;'>{row['nombre']}</b><br><span style='color: #94a3b8; font-size:0.8em'>ID: {row['id']}</span>"},
                 delta = {'reference': row["presupuesto_maximo"], 'increasing': {'color': "#ef4444"}, 'decreasing': {'color': "#10b981"}},
                 gauge = {
                     'axis': {'range': [None, row["presupuesto_maximo"]], 'tickwidth': 1, 'tickcolor': "#475569"},
