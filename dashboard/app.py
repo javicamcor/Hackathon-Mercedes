@@ -22,6 +22,9 @@ st.markdown("""
     html, body, [class*="css"] {
         font-family: 'Outfit', sans-serif;
     }
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
     
     /* Fondo oscuro premium con gradiente radial */
     .stApp {
@@ -31,23 +34,23 @@ st.markdown("""
     
     /* Headers espectaculares */
     .header-title {
-        font-size: 4.5rem;
+        font-size: 2.2rem;
         font-weight: 800;
         text-align: center;
         background: linear-gradient(135deg, #ffffff 0%, #94a3b8 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        margin-bottom: 0.2rem;
-        padding-top: 2rem;
+        margin-bottom: 0rem;
+        padding-top: 0rem;
         letter-spacing: -1px;
     }
     
     .header-subtitle {
         text-align: center;
-        color: #94a3b8;
-        font-size: 1.2rem;
+        color: #cbd5e1;
+        font-size: 1rem;
         font-weight: 300;
-        margin-bottom: 4rem;
+        margin-bottom: 1.5rem;
         letter-spacing: 0.5px;
     }
     
@@ -58,11 +61,11 @@ st.markdown("""
         -webkit-backdrop-filter: blur(16px);
         border: 1px solid rgba(255, 255, 255, 0.05);
         border-radius: 24px;
-        padding: 32px 24px;
+        padding: 16px;
         text-align: center;
         box-shadow: 0 10px 40px -10px rgba(0,0,0,0.5);
         transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        margin-bottom: 2rem;
+        margin-bottom: 1rem;
         position: relative;
         overflow: hidden;
     }
@@ -89,7 +92,7 @@ st.markdown("""
     
     /* Valores de métricas con gradientes */
     .metric-value {
-        font-size: 3.5rem;
+        font-size: 1.8rem;
         font-weight: 800;
         background: linear-gradient(135deg, #a78bfa, #818cf8, #38bdf8);
         -webkit-background-clip: text;
@@ -263,7 +266,7 @@ with tab1:
             fig = go.Figure(go.Indicator(
                 mode = "gauge+number+delta",
                 value = row["gasto_actual"],
-                title = {'text': f"<b>{row['nombre']}</b><br><span style='color: #94a3b8; font-size:0.8em'>ID: {row['id']}</span>"},
+                title = {'text': f"<span style='color: #e2e8f0;'><b>{row['nombre']}</b></span><br><span style='color: #94a3b8; font-size:0.8em'>ID: {row['id']}</span>"},
                 delta = {'reference': row["presupuesto_maximo"], 'increasing': {'color': "#ef4444"}, 'decreasing': {'color': "#10b981"}},
                 gauge = {
                     'axis': {'range': [None, row["presupuesto_maximo"]], 'tickwidth': 1, 'tickcolor': "#475569"},
@@ -277,7 +280,7 @@ with tab1:
                 }
             ))
             
-            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", font={'color': "white"}, margin=dict(l=20, r=20, t=50, b=20), height=300)
+            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", font={'color': '#f8fafc', 'family': 'Inter'}, margin=dict(l=20, r=20, t=50, b=20), height=300)
             st.plotly_chart(fig, use_container_width=True)
             
     st.write("---")
@@ -286,21 +289,31 @@ with tab1:
     
     with col_chart1:
         if not df_logs.empty:
-            df_modelo = df_logs.groupby("modelo_usado").size().reset_index(name="peticiones")
+            df_modelos_reales = df_logs[df_logs['modelo_usado'] != 'caché']
+            df_modelo = df_modelos_reales.groupby("modelo_usado").size().reset_index(name="peticiones")
             fig_pie = px.pie(df_modelo, values='peticiones', names='modelo_usado', title='Peticiones por Modelo Usado',
                              color_discrete_sequence=px.colors.qualitative.Pastel)
-            fig_pie.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font={'color': "white"})
+            fig_pie.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font={'color': "white"},
+                xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)', zerolinecolor='rgba(255,255,255,0.2)', tickfont=dict(color='#cbd5e1')),
+                yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)', zerolinecolor='rgba(255,255,255,0.2)', tickfont=dict(color='#cbd5e1'))
+            )
             st.plotly_chart(fig_pie, use_container_width=True)
         else:
             st.info("No hay datos de logs registrados aún.")
             
     with col_chart2:
         if not df_logs.empty:
-            df_costes = df_logs.groupby("modelo_usado")["coste_total"].sum().reset_index()
+            df_modelos_reales = df_logs[df_logs['modelo_usado'] != 'caché']
+            df_costes = df_modelos_reales.groupby("modelo_usado")["coste_total"].sum().reset_index()
             fig_bar = px.bar(df_costes, x='modelo_usado', y='coste_total', title='Coste Total por Modelo ($)',
                              color='modelo_usado', text_auto='.4f')
-            fig_bar.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font={'color': "white"},
-                                  xaxis_title="Modelo", yaxis_title="Coste ($)")
+            fig_bar.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font={'color': "white"},
+                xaxis_title="Modelo", yaxis_title="Coste ($)",
+                xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)', zerolinecolor='rgba(255,255,255,0.2)', tickfont=dict(color='#cbd5e1')),
+                yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)', zerolinecolor='rgba(255,255,255,0.2)', tickfont=dict(color='#cbd5e1'))
+            )
             st.plotly_chart(fig_bar, use_container_width=True)
 
 with tab2:
@@ -359,8 +372,12 @@ with tab2:
             # Añadir línea de presupuesto total
             fig_trend.add_hline(y=presupuesto_total, line_dash="dash", line_color="#ef4444", annotation_text="Presupuesto Global")
             
-            fig_trend.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font={'color': "white"},
-                                  xaxis_title="Fecha", yaxis_title="Coste Acumulado ($)")
+            fig_trend.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font={'color': "white"},
+                xaxis_title="Fecha", yaxis_title="Coste Acumulado ($)",
+                xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)', zerolinecolor='rgba(255,255,255,0.2)', tickfont=dict(color='#cbd5e1')),
+                yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)', zerolinecolor='rgba(255,255,255,0.2)', tickfont=dict(color='#cbd5e1'))
+            )
             
             st.plotly_chart(fig_trend, use_container_width=True)
         else:
@@ -378,8 +395,12 @@ with tab3:
             fig_rules = px.bar(df_ahorro_por_regla, x='ahorro_generado', y='regla_aplicada', orientation='h',
                                title="Ahorro Generado por Regla de Enrutamiento ($)",
                                color='regla_aplicada', text_auto='.4f')
-            fig_rules.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font={'color': "white"},
-                                  xaxis_title="Ahorro ($)", yaxis_title="Regla")
+            fig_rules.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font={'color': "white"},
+                xaxis_title="Ahorro ($)", yaxis_title="Regla",
+                xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)', zerolinecolor='rgba(255,255,255,0.2)', tickfont=dict(color='#cbd5e1')),
+                yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)', zerolinecolor='rgba(255,255,255,0.2)', tickfont=dict(color='#cbd5e1'))
+            )
             st.plotly_chart(fig_rules, use_container_width=True)
         else:
             st.info("No se han activado reglas de optimización todavía.")
