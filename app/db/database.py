@@ -43,7 +43,7 @@ def init_db():
 
     conn.commit()
     conn.close()
-    print("Base de datos inicializada (incluyendo tabla de caché).")
+    print("Base de datos inicializada")
 
 def get_consumer(name):
     """Devuelve los datos de un consumidor."""
