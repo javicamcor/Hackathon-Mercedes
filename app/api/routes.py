@@ -77,12 +77,12 @@ async def chat_completions(
     if cache_result:
         print("-> [Caché] ¡Acierto! Devolviendo respuesta cacheada (Coste 0).")
         # Aseguramos extraer texto (soportando posible formato string o dict/tuple devuelto por la db)
-        texto_cacheado = cache_result if isinstance(cache_result, str) else cache_result[0] if isinstance(cache_result, tuple) else cache_result.get("respuesta", str(cache_result))
+        texto_cacheado = cache_result.get("respuesta") if isinstance(cache_result, dict) else cache_result
         
         # Calculate theoretical cost for savings
         tarifas_solicitado = PRECIOS.get(modelo_solicitado, {"entrada": 0, "salida": 0})
-        p_tokens = max(1, len(prompt_usuario) // 4)
-        c_tokens = max(1, len(texto_cacheado) // 4)
+        p_tokens = max(1, len(prompt_usuario) // 3) 
+        c_tokens = max(1, len(texto_cacheado) // 3)
         coste_solicitado = (p_tokens * tarifas_solicitado["entrada"] / 1_000_000) + (c_tokens * tarifas_solicitado["salida"] / 1_000_000)
         
         log_usage(x_consumer_id, modelo_solicitado, "caché", 0, 0, 0.0, "Caché Semántica", coste_solicitado)

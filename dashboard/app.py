@@ -216,9 +216,26 @@ presupuesto_total = df_consumers["presupuesto_maximo"].sum()
 ahorro_total = df_logs["ahorro_generado"].sum() if 'ahorro_generado' in df_logs.columns else 0.0
 peticiones_optimizadas = len(df_logs[df_logs["regla_aplicada"] != "Ninguna"]) if 'regla_aplicada' in df_logs.columns else 0
 
+# --- Alertas de presupuesto ---
+df_consumers = df_consumers.copy()
+if not df_consumers.empty:
+    df_consumers["porcentaje_gastado"] = df_consumers.apply(
+        lambda row: (row["gasto_actual"] / row["presupuesto_maximo"]) * 100 if row["presupuesto_maximo"] > 0 else 0,
+        axis=1,
+    )
+    consumidores_criticos = df_consumers[df_consumers["porcentaje_gastado"] >= 90]
+    consumidores_alerta = df_consumers[(df_consumers["porcentaje_gastado"] >= 80) & (df_consumers["porcentaje_gastado"] < 90)]
+else:
+    consumidores_criticos = df_consumers
+    consumidores_alerta = df_consumers
+
 # --- Layout del Dashboard ---
-st.markdown("<h1 class='header-title'>AI FinOps Proxy</h1>", unsafe_allow_html=True)
-st.markdown("<p class='header-subtitle'>Control de Gastos, Optimización y Gobernanza de IA Generativa</p>", unsafe_allow_html=True)
+st.markdown('''
+    <div class="header-container">
+        <div class="header-title">AI FinOps Proxy</div>
+        <div class="header-subtitle">Control de Gastos, Optimización y Gobernanza de IA Generativa</div>
+    </div>
+''', unsafe_allow_html=True)
 
 # --- Mostrar Alertas Recientes (Top 3) ---
 if not df_alerts.empty:
@@ -242,6 +259,15 @@ with tab1:
         st.markdown(f'''<div class="metric-card"><div class="metric-value savings-value">${ahorro_total:.4f}</div><div class="metric-label">Ahorro Generado ({peticiones_optimizadas} peticiones)</div></div>''', unsafe_allow_html=True)
     
     st.write("---")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown(f'''<div class="metric-card"><div class="metric-value">${gasto_total:.2f}</div><div class="metric-label">Gasto Total Acumulado</div></div>''', unsafe_allow_html=True)
+    with col2:
+        st.markdown(f'''<div class="metric-card"><div class="metric-value">${presupuesto_total:.2f}</div><div class="metric-label">Presupuesto Global</div></div>''', unsafe_allow_html=True)
+    with col3:
+        st.markdown(f'''<div class="metric-card"><div class="metric-value savings-value">${ahorro_total:.4f}</div><div class="metric-label">Ahorro Generado ({peticiones_optimizadas} peticiones)</div></div>''', unsafe_allow_html=True)
+    
+    st.write("---")
     st.subheader("Control de Presupuesto por Equipo")
     cols = st.columns(len(df_consumers) if not df_consumers.empty else 1)
     
@@ -252,6 +278,7 @@ with tab1:
             fig = go.Figure(go.Indicator(
                 mode = "gauge+number+delta",
                 value = row["gasto_actual"],
+                title = {'text': f"<b style='font-size: 18px; color: #ffffff;'>{row['nombre']}</b><br><span style='color: #94a3b8; font-size:0.8em'>ID: {row['id']}</span>"},
                 title = {'text': f"<b style='font-size: 18px; color: #ffffff;'>{row['nombre']}</b><br><span style='color: #94a3b8; font-size:0.8em'>ID: {row['id']}</span>"},
                 delta = {'reference': row["presupuesto_maximo"], 'increasing': {'color': "#ef4444"}, 'decreasing': {'color': "#10b981"}},
                 gauge = {
@@ -395,6 +422,8 @@ with tab3:
     if not df_logs.empty:
         # Formatear la tabla para mostrar mejor
         df_display = df_logs.sort_values(by="timestamp", ascending=False).head(20)
+        columnas_a_borrar = ['id', 'model_used', 'fecha']
+        df_display = df_display.drop(columns=[c for c in columnas_a_borrar if c in df_display.columns])
         
         # Eliminar o renombrar columnas para que sea más claro
         st.dataframe(
