@@ -40,5 +40,5 @@ Thumbs.db
 # ========================
 *.log
 .pytest_cache/
-
+info/
 .idea/
