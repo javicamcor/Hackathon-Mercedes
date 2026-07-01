@@ -45,6 +45,27 @@ def init_db():
     conn.close()
     print("Base de datos inicializada")
 
+def insertar_consumidores_prueba():
+    """Inserta dos consumidores base para poder realizar las pruebas del Hackathon."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+
+    # Lista de equipos de prueba: (nombre, limite_presupuesto, gasto_inicial)
+    equipos_prueba = [
+        ("equipo_desarrollo", 10.0, 0.0),    # Presupuesto holgado
+        ("equipo_marketing", 2.0, 1.95)    # Presupuesto casi agotado (para forzar la regla FinOps)
+    ]
+
+    # Usamos INSERT OR IGNORE para que no falle si la función se ejecuta más de una vez
+    cursor.executemany('''
+                   INSERT OR IGNORE INTO consumers (name, budget_limit, current_spend)
+                   VALUES (?, ?, ?)
+                   ''', equipos_prueba)
+
+    conn.commit()
+    conn.close()
+    print("Consumidores de prueba insertados (o ya existentes).")
+
 def get_consumer(name):
     """Devuelve los datos de un consumidor."""
     conn = sqlite3.connect(DB_NAME)
@@ -83,7 +104,7 @@ def log_usage(consumer_name, model, prompt_tokens, completion_tokens, cost):
 
     conn.commit()
     conn.close()
-    print(f"Log guardado: {consumer_name} gastó ${cost:.6f} en {model}")
+    print(f"💰 Log guardado: {consumer_name} gastó ${cost:.6f} en {model}")
 
 # --- FUNCIONES DE CACHÉ ---
 
@@ -103,7 +124,7 @@ def buscar_en_cache(prompt):
     conn.close()
 
     if resultado:
-        print(" Devolviendo respuesta guardada (Coste: $0.00)")
+        print("⚡ Devolviendo respuesta guardada en caché (Coste: $0.00)")
         return {"respuesta": resultado[0], "modelo": resultado[1]}
     return None
 
@@ -117,12 +138,19 @@ def guardar_en_cache(prompt, respuesta_texto, modelo):
     # Usamos INSERT OR IGNORE por si hay duplicados
     cursor.execute('''
                    INSERT OR IGNORE INTO cache (prompt_hash, respuesta_texto, modelo_usado)
-    VALUES (?, ?, ?)
+                   VALUES (?, ?, ?)
                    ''', (prompt_hash, respuesta_texto, modelo))
 
     conn.commit()
     conn.close()
 
-# Bloque de ejecución principal para probar
+# --- BLOQUE DE EJECUCIÓN PRINCIPAL ---
 if __name__ == "__main__":
+    print("=== CONFIGURANDO BASE DE DATOS ===")
     init_db()
+    insertar_consumidores_prueba()
+
+    # Comprobación rápida por consola
+    print("\nEstado actual de los equipos de prueba:")
+    print(get_consumer("equipo_marketing"))
+    print(get_consumer("equipo_desarrollo"))
