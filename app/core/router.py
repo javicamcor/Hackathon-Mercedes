@@ -2,7 +2,6 @@ import asyncio
 import logging
 import re
 import unicodedata
-import math
 from typing import Any, Dict, List, Tuple
 
 import httpx
@@ -97,67 +96,6 @@ def _detectar_modelo(prompt: str) -> Tuple[str, str]:
     return "llama3.2:3b", "simple"
 
 
-def estimar_tokens_prompt(prompt: str) -> int:
-    """
-    Estima cuántos tokens consume un prompt antes de enviarlo al proveedor.
-
-    Es una aproximación simple basada en longitud del texto, útil para
-    mostrar coste estimado por prompt antes de recibir la respuesta real.
-    """
-    prompt_normalizado = _normalizar_texto(prompt)
-    return max(1, math.ceil(len(prompt_normalizado) / 4))
-
-
-def _obtener_tarifas(modelo: str) -> Dict[str, float]:
-    return PRECIOS.get(modelo, {"entrada": 0.0, "salida": 0.0})
-
-
-def _calcular_costes(modelo: str, prompt_tokens: int, completion_tokens: int) -> Dict[str, float]:
-    tarifas = _obtener_tarifas(modelo)
-    coste_prompt = (prompt_tokens * tarifas["entrada"]) / 1_000_000
-    coste_completion = (completion_tokens * tarifas["salida"]) / 1_000_000
-    return {
-        "prompt_cost": coste_prompt,
-        "completion_cost": coste_completion,
-        "total_cost": coste_prompt + coste_completion,
-    }
-
-
-def estimar_coste_prompt(prompt: str, modelo: str) -> float:
-    """
-    Estima el coste de entrada del prompt para un modelo concreto.
-    """
-    prompt_tokens = estimar_tokens_prompt(prompt)
-    return _calcular_costes(modelo, prompt_tokens, 0)["prompt_cost"]
-
-
-def estimar_completion_tokens(prompt: str) -> int:
-    """
-    Estima cuántos tokens podría generar la respuesta.
-
-    Es una heurística simple para tener una estimación total antes de recibir
-    la respuesta real del proveedor.
-    """
-    prompt_tokens = estimar_tokens_prompt(prompt)
-    return max(16, math.ceil(prompt_tokens * 0.75))
-
-
-def estimar_coste_total(prompt: str, modelo: str) -> Dict[str, float]:
-    """
-    Estima el coste total aproximado del prompt más la respuesta.
-    """
-    prompt_tokens = estimar_tokens_prompt(prompt)
-    completion_tokens = estimar_completion_tokens(prompt)
-    costes = _calcular_costes(modelo, prompt_tokens, completion_tokens)
-    return {
-        "prompt_tokens": prompt_tokens,
-        "completion_tokens_estimados": completion_tokens,
-        "prompt_cost": costes["prompt_cost"],
-        "completion_cost": costes["completion_cost"],
-        "total_cost": costes["total_cost"],
-    }
-
-
 def evaluar_complejidad(prompt: str) -> str:
     """
     CRITERIO 1: Evalúa la complejidad mediante análisis semántico (O(n)).
@@ -179,7 +117,6 @@ async def enrutar_peticion(prompt: str, porcentaje_presupuesto_gastado: float, m
     url_destino = PROVEEDOR_A_URL if modelo_elegido == "llama3.2:3b" else PROVEEDOR_B_URL
     proveedor_destino = "provider-a" if modelo_elegido == "llama3.2:3b" else "provider-b"
     degradado_por_finops = False
-    estimacion_costes = estimar_coste_total(prompt, modelo_elegido)
 
     # 2. Aplicar Criterio 2: FinOps (Degradación controlada de servicio por presupuesto crítico)
     if porcentaje_presupuesto_gastado >= 90.0 and modelo_elegido == "mistral:7b":
@@ -210,11 +147,6 @@ async def enrutar_peticion(prompt: str, porcentaje_presupuesto_gastado: float, m
                 "model": modelo_elegido,
                 "degraded_by_finops": degradado_por_finops,
                 "routing_reason": motivo_ruta,
-                "estimated_prompt_tokens": estimacion_costes["prompt_tokens"],
-                "estimated_completion_tokens": estimacion_costes["completion_tokens_estimados"],
-                "estimated_prompt_cost": estimacion_costes["prompt_cost"],
-                "estimated_completion_cost": estimacion_costes["completion_cost"],
-                "estimated_total_cost": estimacion_costes["total_cost"],
             }
 
             # Devolvemos la respuesta del proveedor con metadata adicional de ruta
