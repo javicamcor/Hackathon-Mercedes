@@ -170,7 +170,7 @@ with tab1:
                 }
             ))
             fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", font={'color': "white"}, margin=dict(l=20, r=20, t=90, b=20), height=280)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, use_container_width=True, theme=None)
             
     st.write("---")
     st.subheader("Análisis de Modelos")
@@ -183,11 +183,11 @@ with tab1:
             fig_pie = px.pie(df_modelo, values='peticiones', names='modelo_usado', title='Peticiones por Modelo Usado',
                              color_discrete_sequence=px.colors.qualitative.Pastel)
             fig_pie.update_layout(
-                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#ffffff", family="Inter"), height=320,
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#ffffff", family="Inter"), height=320, legend=dict(font=dict(color="#ffffff")),
                 xaxis=dict(showgrid=True, gridcolor='#334155', zerolinecolor='#475569', tickfont=dict(color='#ffffff'), title_font=dict(color='#ffffff')),
                 yaxis=dict(showgrid=True, gridcolor='#334155', zerolinecolor='#475569', tickfont=dict(color='#ffffff'), title_font=dict(color='#ffffff'))
             )
-            st.plotly_chart(fig_pie, use_container_width=True)
+            st.plotly_chart(fig_pie, use_container_width=True, theme=None)
         else:
             st.info("No hay datos de logs registrados aún.")
             
@@ -198,12 +198,12 @@ with tab1:
             fig_bar = px.bar(df_costes, x='modelo_usado', y='coste_total', title='Coste Total por Modelo ($)',
                              color='modelo_usado', text_auto='.4f')
             fig_bar.update_layout(
-                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#ffffff", family="Inter"), height=320,
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#ffffff", family="Inter"), height=320, legend=dict(font=dict(color="#ffffff")),
                 xaxis_title="Modelo", yaxis_title="Coste ($)",
                 xaxis=dict(showgrid=True, gridcolor='#334155', zerolinecolor='#475569', tickfont=dict(color='#ffffff'), title_font=dict(color='#ffffff')),
                 yaxis=dict(showgrid=True, gridcolor='#334155', zerolinecolor='#475569', tickfont=dict(color='#ffffff'), title_font=dict(color='#ffffff'))
             )
-            st.plotly_chart(fig_bar, use_container_width=True)
+            st.plotly_chart(fig_bar, use_container_width=True, theme=None)
 
 with tab2:
     st.subheader("Predicción de Gasto a 3 Días")
@@ -262,13 +262,13 @@ with tab2:
             fig_trend.add_hline(y=presupuesto_total, line_dash="dash", line_color="#ef4444", annotation_text="Presupuesto Global")
             
             fig_trend.update_layout(
-                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#ffffff", family="Inter"), height=320,
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#ffffff", family="Inter"), height=320, legend=dict(font=dict(color="#ffffff")),
                 xaxis_title="Fecha", yaxis_title="Coste Acumulado ($)",
                 xaxis=dict(showgrid=True, gridcolor='#334155', zerolinecolor='#475569', tickfont=dict(color='#ffffff'), title_font=dict(color='#ffffff')),
                 yaxis=dict(showgrid=True, gridcolor='#334155', zerolinecolor='#475569', tickfont=dict(color='#ffffff'), title_font=dict(color='#ffffff'))
             )
             
-            st.plotly_chart(fig_trend, use_container_width=True)
+            st.plotly_chart(fig_trend, use_container_width=True, theme=None)
         else:
             st.warning("No hay suficientes días de datos para calcular una tendencia.")
     else:
@@ -285,12 +285,12 @@ with tab3:
                                title="Ahorro Generado por Regla de Enrutamiento ($)",
                                color='regla_aplicada', text_auto='.4f')
             fig_rules.update_layout(
-                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#ffffff", family="Inter"), height=320,
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#ffffff", family="Inter"), height=320, legend=dict(font=dict(color="#ffffff")), margin=dict(l=200, r=20, t=40, b=40),
                 xaxis_title="Ahorro ($)", yaxis_title="Regla",
                 xaxis=dict(showgrid=True, gridcolor='#334155', zerolinecolor='#475569', tickfont=dict(color='#ffffff'), title_font=dict(color='#ffffff')),
-                yaxis=dict(showgrid=True, gridcolor='#334155', zerolinecolor='#475569', tickfont=dict(color='#ffffff'), title_font=dict(color='#ffffff'))
+                yaxis=dict(showgrid=True, gridcolor='#334155', zerolinecolor='#475569', tickfont=dict(color='#ffffff'), title_font=dict(color='#ffffff'), automargin=True)
             )
-            st.plotly_chart(fig_rules, use_container_width=True)
+            st.plotly_chart(fig_rules, use_container_width=True, theme=None)
         else:
             st.info("No se han activado reglas de optimización todavía.")
             
