@@ -47,13 +47,14 @@ st.markdown("""
     
     .header-subtitle {
         text-align: center;
-        color: #cbd5e1;
-        font-size: 1rem;
-        font-weight: 300;
-        margin-bottom: 1.5rem;
-        letter-spacing: 0.5px;
+        color: #64748b;
+        font-size: 1.2rem;
+        margin-bottom: 3rem;
     }
     
+    div.block-container { padding-top: 2rem; padding-bottom: 1rem; max-width: 95%; }
+    .stTabs [data-baseweb="tab-list"] { gap: 2rem; justify-content: center; background-color: rgba(30, 41, 59, 0.5); padding: 10px; border-radius: 10px; }
+
     /* Glassmorphism en tarjetas de métricas */
     .metric-card {
         background: rgba(30, 41, 59, 0.4);
@@ -144,7 +145,6 @@ def get_connection():
 # --- Obtención de Datos ---
 conn = get_connection()
 if conn:
-    # Verificamos si las tablas reales existen (por si el backend aún no ha sido ejecutado)
     cursor = conn.cursor()
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='consumers'")
     if not cursor.fetchone():
@@ -153,7 +153,6 @@ if conn:
         
     df_consumers = pd.read_sql_query("SELECT id, name as nombre, budget_limit as presupuesto_maximo, current_spend as gasto_actual FROM consumers", conn)
     
-    # Adaptar los nombres de las columnas de logs del proxy a los esperados por el dashboard
     df_logs = pd.read_sql_query("""
         SELECT 
             id, 
@@ -178,11 +177,8 @@ if conn:
         
     conn.close()
     
-    # Convertir timestamp a datetime para gráficas temporales
     if not df_logs.empty:
         df_logs['timestamp'] = pd.to_datetime(df_logs['timestamp'])
-        # Normalizar nombres de columnas para compatibilidad entre mock y DB real
-        # Model usado
         model_cols = ['modelo_usado', 'provider_model', 'model_used']
         for c in model_cols:
             if c in df_logs.columns:
@@ -190,8 +186,6 @@ if conn:
                 break
         if 'model_used' not in df_logs.columns:
             df_logs['model_used'] = 'unknown'
-
-        # Coste total
         cost_cols = ['coste_total', 'total_cost', 'coste']
         for c in cost_cols:
             if c in df_logs.columns:
@@ -199,8 +193,6 @@ if conn:
                 break
         if 'coste_total' not in df_logs.columns:
             df_logs['coste_total'] = 0.0
-
-        # Regla aplicada
         regla_cols = ['regla_aplicada']
         for c in regla_cols:
             if c in df_logs.columns:
@@ -208,8 +200,6 @@ if conn:
                 break
         if 'regla_aplicada' not in df_logs.columns:
             df_logs['regla_aplicada'] = 'Ninguna'
-
-        # Ahorro generado
         ahorro_cols = ['ahorro_generado']
         for c in ahorro_cols:
             if c in df_logs.columns:
@@ -239,39 +229,19 @@ if not df_alerts.empty:
             else:
                 st.warning(f"**{row['timestamp']}**: {row['message']}")
 
-# 1. Tarjetas de Métricas Superiores
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    st.markdown(f'''
-        <div class="metric-card">
-            <div class="metric-value">${gasto_total:.2f}</div>
-            <div class="metric-label">Gasto Total Acumulado</div>
-        </div>
-    ''', unsafe_allow_html=True)
-
-with col2:
-    st.markdown(f'''
-        <div class="metric-card">
-            <div class="metric-value">${presupuesto_total:.2f}</div>
-            <div class="metric-label">Presupuesto Global</div>
-        </div>
-    ''', unsafe_allow_html=True)
-
-with col3:
-    st.markdown(f'''
-        <div class="metric-card">
-            <div class="metric-value savings-value">${ahorro_total:.4f}</div>
-            <div class="metric-label">Ahorro Generado ({peticiones_optimizadas} peticiones)</div>
-        </div>
-    ''', unsafe_allow_html=True)
-
-st.write("---")
-
 # TABS PRINCIPALES
 tab1, tab2, tab3, tab4 = st.tabs(["📊 Visión General", "📈 Predicciones de Gasto", "🧾 Auditoría e Impacto", "🚨 Alertas FinOps"])
 
 with tab1:
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.markdown(f'''<div class="metric-card"><div class="metric-value">${gasto_total:.2f}</div><div class="metric-label">Gasto Total Acumulado</div></div>''', unsafe_allow_html=True)
+    with col2:
+        st.markdown(f'''<div class="metric-card"><div class="metric-value">${presupuesto_total:.2f}</div><div class="metric-label">Presupuesto Global</div></div>''', unsafe_allow_html=True)
+    with col3:
+        st.markdown(f'''<div class="metric-card"><div class="metric-value savings-value">${ahorro_total:.4f}</div><div class="metric-label">Ahorro Generado ({peticiones_optimizadas} peticiones)</div></div>''', unsafe_allow_html=True)
+    
+    st.write("---")
     st.subheader("Control de Presupuesto por Equipo")
     cols = st.columns(len(df_consumers) if not df_consumers.empty else 1)
     
@@ -279,11 +249,10 @@ with tab1:
         with cols[idx]:
             porcentaje = (row["gasto_actual"] / row["presupuesto_maximo"]) * 100 if row["presupuesto_maximo"] > 0 else 0
             color = "#10b981" if porcentaje < 75 else "#f59e0b" if porcentaje < 90 else "#ef4444"
-            
             fig = go.Figure(go.Indicator(
                 mode = "gauge+number+delta",
                 value = row["gasto_actual"],
-                title = {'text': f"<span style='color: #e2e8f0;'><b>{row['nombre']}</b></span><br><span style='color: #94a3b8; font-size:0.8em'>ID: {row['id']}</span>"},
+                title = {'text': f"<b style='font-size: 18px; color: #ffffff;'>{row['nombre']}</b><br><span style='color: #94a3b8; font-size:0.8em'>ID: {row['id']}</span>"},
                 delta = {'reference': row["presupuesto_maximo"], 'increasing': {'color': "#ef4444"}, 'decreasing': {'color': "#10b981"}},
                 gauge = {
                     'axis': {'range': [None, row["presupuesto_maximo"]], 'tickwidth': 1, 'tickcolor': "#475569"},
@@ -296,8 +265,7 @@ with tab1:
                         {'range': [row["presupuesto_maximo"]*0.9, row["presupuesto_maximo"]], 'color': "rgba(239, 68, 68, 0.1)"}],
                 }
             ))
-            
-            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", font={'color': '#f8fafc', 'family': 'Inter'}, margin=dict(l=20, r=20, t=50, b=20), height=300)
+            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", font={'color': "white"}, margin=dict(l=20, r=20, t=90, b=20), height=280)
             st.plotly_chart(fig, use_container_width=True)
             
     st.write("---")
@@ -311,9 +279,9 @@ with tab1:
             fig_pie = px.pie(df_modelo, values='peticiones', names='modelo_usado', title='Peticiones por Modelo Usado',
                              color_discrete_sequence=px.colors.qualitative.Pastel)
             fig_pie.update_layout(
-                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font={'color': "white"},
-                xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)', zerolinecolor='rgba(255,255,255,0.2)', tickfont=dict(color='#cbd5e1')),
-                yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)', zerolinecolor='rgba(255,255,255,0.2)', tickfont=dict(color='#cbd5e1'))
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#ffffff"), height=320,
+                xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.2)', zerolinecolor='rgba(255,255,255,0.4)', tickfont=dict(color='#ffffff')),
+                yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.2)', zerolinecolor='rgba(255,255,255,0.4)', tickfont=dict(color='#ffffff'))
             )
             st.plotly_chart(fig_pie, use_container_width=True)
         else:
@@ -326,10 +294,10 @@ with tab1:
             fig_bar = px.bar(df_costes, x='modelo_usado', y='coste_total', title='Coste Total por Modelo ($)',
                              color='modelo_usado', text_auto='.4f')
             fig_bar.update_layout(
-                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font={'color': "white"},
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#ffffff"), height=320,
                 xaxis_title="Modelo", yaxis_title="Coste ($)",
-                xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)', zerolinecolor='rgba(255,255,255,0.2)', tickfont=dict(color='#cbd5e1')),
-                yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)', zerolinecolor='rgba(255,255,255,0.2)', tickfont=dict(color='#cbd5e1'))
+                xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.2)', zerolinecolor='rgba(255,255,255,0.4)', tickfont=dict(color='#ffffff')),
+                yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.2)', zerolinecolor='rgba(255,255,255,0.4)', tickfont=dict(color='#ffffff'))
             )
             st.plotly_chart(fig_bar, use_container_width=True)
 
@@ -390,10 +358,10 @@ with tab2:
             fig_trend.add_hline(y=presupuesto_total, line_dash="dash", line_color="#ef4444", annotation_text="Presupuesto Global")
             
             fig_trend.update_layout(
-                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font={'color': "white"},
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#ffffff"), height=320,
                 xaxis_title="Fecha", yaxis_title="Coste Acumulado ($)",
-                xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)', zerolinecolor='rgba(255,255,255,0.2)', tickfont=dict(color='#cbd5e1')),
-                yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)', zerolinecolor='rgba(255,255,255,0.2)', tickfont=dict(color='#cbd5e1'))
+                xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.2)', zerolinecolor='rgba(255,255,255,0.4)', tickfont=dict(color='#ffffff')),
+                yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.2)', zerolinecolor='rgba(255,255,255,0.4)', tickfont=dict(color='#ffffff'))
             )
             
             st.plotly_chart(fig_trend, use_container_width=True)
@@ -413,10 +381,10 @@ with tab3:
                                title="Ahorro Generado por Regla de Enrutamiento ($)",
                                color='regla_aplicada', text_auto='.4f')
             fig_rules.update_layout(
-                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font={'color': "white"},
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#ffffff"), height=320,
                 xaxis_title="Ahorro ($)", yaxis_title="Regla",
-                xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)', zerolinecolor='rgba(255,255,255,0.2)', tickfont=dict(color='#cbd5e1')),
-                yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.1)', zerolinecolor='rgba(255,255,255,0.2)', tickfont=dict(color='#cbd5e1'))
+                xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.2)', zerolinecolor='rgba(255,255,255,0.4)', tickfont=dict(color='#ffffff')),
+                yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.2)', zerolinecolor='rgba(255,255,255,0.4)', tickfont=dict(color='#ffffff'))
             )
             st.plotly_chart(fig_rules, use_container_width=True)
         else:
