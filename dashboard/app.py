@@ -16,23 +16,118 @@ st.set_page_config(
 # --- Estilos Personalizados (CSS) ---
 st.markdown("""
 <style>
-    header { visibility: hidden; display: none; }
-    #MainMenu { visibility: hidden; }
-    footer { visibility: hidden; }
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    html, body, [class*="css"] { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
-    .stApp { background-color: #0b1120; color: #f8fafc; }
-    .metric-card { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 20px; text-align: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
-    .metric-value { font-size: 2.2rem; font-weight: 700; color: #ffffff; margin-bottom: 4px; letter-spacing: -0.02em; }
-    .savings-value { color: #10b981; }
-    .metric-label { font-size: 0.85rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
-    .header-container { text-align: center; padding-bottom: 1.5rem; margin-bottom: 2rem; border-bottom: 1px solid #334155; }
-    .header-title { font-size: 2.5rem; font-weight: 700; color: #ffffff; margin-bottom: 0.5rem; letter-spacing: -0.02em; }
-    .header-subtitle { color: #94a3b8; font-size: 1.1rem; font-weight: 400; }
+    /* Tipografía ultra moderna (Outfit) */
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap');
+    
+    html, body, [class*="css"] {
+        font-family: 'Outfit', sans-serif;
+    }
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    
+    /* Fondo oscuro premium con gradiente radial */
+    .stApp {
+        background: radial-gradient(circle at top left, #1e1b4b, #0f172a 40%, #020617 100%);
+        color: #f8fafc;
+    }
+    
+    /* Headers espectaculares */
+    .header-title {
+        font-size: 2.2rem;
+        font-weight: 800;
+        text-align: center;
+        background: linear-gradient(135deg, #ffffff 0%, #94a3b8 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 0rem;
+        padding-top: 0rem;
+        letter-spacing: -1px;
+    }
+    
+    .header-subtitle {
+        text-align: center;
+        color: #64748b;
+        font-size: 1.2rem;
+        margin-bottom: 3rem;
+    }
+    
     div.block-container { padding-top: 2rem; padding-bottom: 1rem; max-width: 95%; }
-    .stTabs [data-baseweb="tab-list"] { gap: 2rem; justify-content: center; background-color: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #334155; margin-bottom: 2rem; }
-    .stTabs [data-baseweb="tab"] { color: #94a3b8; font-weight: 600; }
-    .stTabs [aria-selected="true"] { color: #ffffff !important; }
+    .stTabs [data-baseweb="tab-list"] { gap: 2rem; justify-content: center; background-color: rgba(30, 41, 59, 0.5); padding: 10px; border-radius: 10px; }
+
+    /* Glassmorphism en tarjetas de métricas */
+    .metric-card {
+        background: rgba(30, 41, 59, 0.4);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 24px;
+        padding: 16px;
+        text-align: center;
+        box-shadow: 0 10px 40px -10px rgba(0,0,0,0.5);
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        margin-bottom: 1rem;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    /* Efecto de brillo (shine) al pasar el ratón */
+    .metric-card::before {
+        content: '';
+        position: absolute;
+        top: 0; left: -100%;
+        width: 50%; height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+        transition: 0.5s;
+    }
+    
+    .metric-card:hover {
+        transform: translateY(-8px) scale(1.02);
+        border: 1px solid rgba(139, 92, 246, 0.3);
+        box-shadow: 0 20px 40px -10px rgba(139, 92, 246, 0.2);
+    }
+    
+    .metric-card:hover::before {
+        left: 100%;
+    }
+    
+    /* Valores de métricas con gradientes */
+    .metric-value {
+        font-size: 1.8rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #a78bfa, #818cf8, #38bdf8);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 12px;
+        line-height: 1.2;
+    }
+    
+    .metric-label {
+        font-size: 0.95rem;
+        color: #cbd5e1;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+    }
+    
+    .savings-value {
+        background: linear-gradient(135deg, #34d399, #10b981, #059669);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    
+    /* Mejoras en las pestañas de Streamlit */
+    div[data-testid="stTabs"] button {
+        font-size: 1.1rem;
+        font-weight: 600;
+        padding-bottom: 1rem;
+    }
+    
+    /* Separadores sutiles */
+    hr {
+        border-color: rgba(255,255,255,0.05);
+        margin: 3rem 0;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -72,6 +167,14 @@ if conn:
             timestamp 
         FROM logs
     """, conn)
+    
+    # Obtener Alertas si la tabla existe
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='alerts'")
+    if cursor.fetchone():
+        df_alerts = pd.read_sql_query("SELECT id, consumer_name, message, timestamp FROM alerts ORDER BY timestamp DESC", conn)
+    else:
+        df_alerts = pd.DataFrame(columns=["id", "consumer_name", "message", "timestamp"])
+        
     conn.close()
     
     if not df_logs.empty:
@@ -113,19 +216,6 @@ presupuesto_total = df_consumers["presupuesto_maximo"].sum()
 ahorro_total = df_logs["ahorro_generado"].sum() if 'ahorro_generado' in df_logs.columns else 0.0
 peticiones_optimizadas = len(df_logs[df_logs["regla_aplicada"] != "Ninguna"]) if 'regla_aplicada' in df_logs.columns else 0
 
-# --- Alertas de presupuesto ---
-df_consumers = df_consumers.copy()
-if not df_consumers.empty:
-    df_consumers["porcentaje_gastado"] = df_consumers.apply(
-        lambda row: (row["gasto_actual"] / row["presupuesto_maximo"]) * 100 if row["presupuesto_maximo"] > 0 else 0,
-        axis=1,
-    )
-    consumidores_criticos = df_consumers[df_consumers["porcentaje_gastado"] >= 90]
-    consumidores_alerta = df_consumers[(df_consumers["porcentaje_gastado"] >= 80) & (df_consumers["porcentaje_gastado"] < 90)]
-else:
-    consumidores_criticos = df_consumers
-    consumidores_alerta = df_consumers
-
 # --- Layout del Dashboard ---
 st.markdown('''
     <div class="header-container">
@@ -134,51 +224,17 @@ st.markdown('''
     </div>
 ''', unsafe_allow_html=True)
 
-# 1. Tarjetas de Métricas Superiores
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    st.markdown(f'''
-        <div class="metric-card">
-            <div class="metric-value">${gasto_total:.2f}</div>
-            <div class="metric-label">Gasto Total Acumulado</div>
-        </div>
-    ''', unsafe_allow_html=True)
-
-with col2:
-    st.markdown(f'''
-        <div class="metric-card">
-            <div class="metric-value">${presupuesto_total:.2f}</div>
-            <div class="metric-label">Presupuesto Global</div>
-        </div>
-    ''', unsafe_allow_html=True)
-
-with col3:
-    st.markdown(f'''
-        <div class="metric-card">
-            <div class="metric-value savings-value">${ahorro_total:.4f}</div>
-            <div class="metric-label">Ahorro Generado ({peticiones_optimizadas} peticiones)</div>
-        </div>
-    ''', unsafe_allow_html=True)
-
-if not df_consumers.empty:
-    if not consumidores_criticos.empty:
-        critical_names = ", ".join(
-            f"{row['nombre']} ({row['porcentaje_gastado']:.1f}%)" for _, row in consumidores_criticos.iterrows()
-        )
-        st.error(f"Presupuesto crítico detectado en: {critical_names}")
-    elif not consumidores_alerta.empty:
-        alert_names = ", ".join(
-            f"{row['nombre']} ({row['porcentaje_gastado']:.1f}%)" for _, row in consumidores_alerta.iterrows()
-        )
-        st.warning(f"Equipos cerca del límite de presupuesto: {alert_names}")
-    else:
-        st.success("Todos los equipos están por debajo del 80% de su presupuesto.")
-
-st.write("---")
+# --- Mostrar Alertas Recientes (Top 3) ---
+if not df_alerts.empty:
+    with st.expander("🚨 Notificaciones de Alertas Recientes", expanded=True):
+        for idx, row in df_alerts.head(3).iterrows():
+            if "BLOQUEO" in row['message']:
+                st.error(f"**{row['timestamp']}**: {row['message']}")
+            else:
+                st.warning(f"**{row['timestamp']}**: {row['message']}")
 
 # TABS PRINCIPALES
-tab1, tab2, tab3 = st.tabs(["📊 Visión General", "📈 Predicciones de Gasto", "🧾 Auditoría e Impacto"])
+tab1, tab2, tab3, tab4 = st.tabs(["📊 Visión General", "📈 Predicciones de Gasto", "🧾 Auditoría e Impacto", "🚨 Alertas FinOps"])
 
 with tab1:
     col1, col2, col3 = st.columns(3)
@@ -213,7 +269,7 @@ with tab1:
                         {'range': [row["presupuesto_maximo"]*0.9, row["presupuesto_maximo"]], 'color': "rgba(239, 68, 68, 0.1)"}],
                 }
             ))
-            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", font=dict(color="#ffffff", family="Inter"), margin=dict(l=20, r=20, t=90, b=20), height=280)
+            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", font={'color': "white"}, margin=dict(l=20, r=20, t=90, b=20), height=280)
             st.plotly_chart(fig, use_container_width=True)
             
     st.write("---")
@@ -227,9 +283,9 @@ with tab1:
             fig_pie = px.pie(df_modelo, values='peticiones', names='modelo_usado', title='Peticiones por Modelo Usado',
                              color_discrete_sequence=px.colors.qualitative.Pastel)
             fig_pie.update_layout(
-                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#ffffff", family="Inter"), height=320,
-                xaxis=dict(showgrid=True, gridcolor='#334155', zerolinecolor='#475569', tickfont=dict(color='#ffffff')),
-                yaxis=dict(showgrid=True, gridcolor='#334155', zerolinecolor='#475569', tickfont=dict(color='#ffffff'))
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#ffffff"), height=320,
+                xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.2)', zerolinecolor='rgba(255,255,255,0.4)', tickfont=dict(color='#ffffff')),
+                yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.2)', zerolinecolor='rgba(255,255,255,0.4)', tickfont=dict(color='#ffffff'))
             )
             st.plotly_chart(fig_pie, use_container_width=True)
         else:
@@ -242,10 +298,10 @@ with tab1:
             fig_bar = px.bar(df_costes, x='modelo_usado', y='coste_total', title='Coste Total por Modelo ($)',
                              color='modelo_usado', text_auto='.4f')
             fig_bar.update_layout(
-                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#ffffff", family="Inter"), height=320,
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#ffffff"), height=320,
                 xaxis_title="Modelo", yaxis_title="Coste ($)",
-                xaxis=dict(showgrid=True, gridcolor='#334155', zerolinecolor='#475569', tickfont=dict(color='#ffffff')),
-                yaxis=dict(showgrid=True, gridcolor='#334155', zerolinecolor='#475569', tickfont=dict(color='#ffffff'))
+                xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.2)', zerolinecolor='rgba(255,255,255,0.4)', tickfont=dict(color='#ffffff')),
+                yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.2)', zerolinecolor='rgba(255,255,255,0.4)', tickfont=dict(color='#ffffff'))
             )
             st.plotly_chart(fig_bar, use_container_width=True)
 
@@ -306,10 +362,10 @@ with tab2:
             fig_trend.add_hline(y=presupuesto_total, line_dash="dash", line_color="#ef4444", annotation_text="Presupuesto Global")
             
             fig_trend.update_layout(
-                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#ffffff", family="Inter"), height=320,
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#ffffff"), height=320,
                 xaxis_title="Fecha", yaxis_title="Coste Acumulado ($)",
-                xaxis=dict(showgrid=True, gridcolor='#334155', zerolinecolor='#475569', tickfont=dict(color='#ffffff')),
-                yaxis=dict(showgrid=True, gridcolor='#334155', zerolinecolor='#475569', tickfont=dict(color='#ffffff'))
+                xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.2)', zerolinecolor='rgba(255,255,255,0.4)', tickfont=dict(color='#ffffff')),
+                yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.2)', zerolinecolor='rgba(255,255,255,0.4)', tickfont=dict(color='#ffffff'))
             )
             
             st.plotly_chart(fig_trend, use_container_width=True)
@@ -329,10 +385,10 @@ with tab3:
                                title="Ahorro Generado por Regla de Enrutamiento ($)",
                                color='regla_aplicada', text_auto='.4f')
             fig_rules.update_layout(
-                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#ffffff", family="Inter"), height=320,
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#ffffff"), height=320,
                 xaxis_title="Ahorro ($)", yaxis_title="Regla",
-                xaxis=dict(showgrid=True, gridcolor='#334155', zerolinecolor='#475569', tickfont=dict(color='#ffffff')),
-                yaxis=dict(showgrid=True, gridcolor='#334155', zerolinecolor='#475569', tickfont=dict(color='#ffffff'))
+                xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.2)', zerolinecolor='rgba(255,255,255,0.4)', tickfont=dict(color='#ffffff')),
+                yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.2)', zerolinecolor='rgba(255,255,255,0.4)', tickfont=dict(color='#ffffff'))
             )
             st.plotly_chart(fig_rules, use_container_width=True)
         else:
@@ -355,3 +411,20 @@ with tab3:
                 "ahorro_generado": st.column_config.NumberColumn("Ahorro ($)", format="%.5f")
             }
         )
+
+with tab4:
+    st.subheader("Registro Histórico de Alertas")
+    st.markdown("Todas las notificaciones y bloqueos generados por el sistema de control de presupuesto.")
+    if not df_alerts.empty:
+        st.dataframe(
+            df_alerts, 
+            use_container_width=True,
+            column_config={
+                "id": "ID Alerta",
+                "consumer_name": "Equipo Consumidor",
+                "message": "Mensaje de Alerta",
+                "timestamp": st.column_config.DatetimeColumn("Fecha y Hora", format="DD/MM/YYYY HH:mm:ss")
+            }
+        )
+    else:
+        st.info("✅ No hay alertas registradas en el sistema. Todos los equipos están dentro de su presupuesto.")

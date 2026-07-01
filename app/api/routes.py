@@ -3,7 +3,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
-from app.db.database import check_budget, log_usage, buscar_en_cache, guardar_en_cache
+from app.db.database import check_budget, log_usage, buscar_en_cache, guardar_en_cache, log_alert
 from app.core.router import enrutar_peticion, PRECIOS
 
 router = APIRouter()
@@ -57,12 +57,17 @@ async def chat_completions(
     # Paso A: Verificar Presupuesto
     has_budget, consumer_data = check_budget(x_consumer_id)
     if not has_budget:
+        mensaje_bloqueo = f"¡BLOQUEO! El equipo '{x_consumer_id}' ha agotado su presupuesto de ${consumer_data['budget_limit']}."
+        print(f"[ALERTA FINOPS] {mensaje_bloqueo}")
+        log_alert(x_consumer_id, mensaje_bloqueo)
         raise HTTPException(status_code=402, detail="Presupuesto agotado")
         
     # Paso B: Alerta FinOps
     porcentaje_gastado = (consumer_data["current_spend"] / consumer_data["budget_limit"]) * 100
     if porcentaje_gastado >= 80.0:
-        print(f"🚨 [ALERTA FINOPS] ¡ATENCIÓN! El equipo '{x_consumer_id}' está al límite de su presupuesto. Consumo actual: {porcentaje_gastado:.2f}% 🚨")
+        mensaje_alerta = f"¡ATENCIÓN! El equipo '{x_consumer_id}' está al límite de su presupuesto. Consumo actual: {porcentaje_gastado:.2f}%"
+        print(f"[ALERTA FINOPS] {mensaje_alerta}")
+        log_alert(x_consumer_id, mensaje_alerta)
         
     modelo_solicitado = request.model
     
