@@ -101,12 +101,19 @@ def log_usage(consumer_name, requested_model, provider_model, prompt_tokens, com
     """Registra la llamada y actualiza el gasto del consumidor."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
+    timestamp_local = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     # 1. Insertar el log
     cursor.execute('''
                    INSERT INTO logs (consumer_name, requested_model, provider_model, prompt_tokens, completion_tokens, total_cost, applied_rule, savings)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                    ''', (consumer_name, requested_model, provider_model, prompt_tokens, completion_tokens, cost, applied_rule, savings))
+
+    cursor.execute('''
+                   UPDATE logs
+                   SET timestamp = ?
+                   WHERE id = last_insert_rowid()
+                   ''', (timestamp_local,))
 
     # 2. Actualizar el gasto acumulado del consumidor
     cursor.execute('''
