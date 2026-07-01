@@ -1,0 +1,42 @@
+# ========================
+# Entorno y Secretos (¡CRÍTICO!)
+# ========================
+.env
+.env.*
+!.env.example
+
+# ========================
+# Bases de datos locales
+# ========================
+*.db
+*.sqlite
+*.sqlite3
+finops.db
+
+# ========================
+# Archivos de Python
+# ========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# ========================
+# Entornos Virtuales de Python
+# ========================
+venv/
+.venv/
+env/
+.env_python/
+
+# ========================
+# Archivos de SO (Mac / Windows)
+# ========================
+.DS_Store
+Thumbs.db
+
+# ========================
+# Logs y Archivos Temporales
+# ========================
+*.log
+.pytest_cache/
