@@ -87,15 +87,20 @@ def evaluar_complejidad(prompt: str) -> str:
     logger.info("Tarea conversacional simple. Modelo óptimo: llama3.2:3b")
     return "llama3.2:3b"
 
-async def enrutar_peticion(prompt: str, porcentaje_presupuesto_gastado: float, mensajes_completos: list) -> dict:
+async def enrutar_peticion(prompt: str, porcentaje_presupuesto_gastado: float, mensajes_completos: list, modelo_solicitado: str) -> tuple[dict, dict]:
     """
     Función principal de El Cerebro (Módulo 3).
     Decide el modelo, aplica políticas FinOps de ahorro y gestiona la llamada HTTP asíncrona.
     """
     logger.info("Evaluando enrutamiento. Gasto actual del consumidor: %.2f%%", porcentaje_presupuesto_gastado)
 
+    metadata = {"rule": "Ninguna"}
+
     # 1. Aplicar Criterio 1: Complejidad del prompt (Ahora con palabras clave)
     modelo_elegido = evaluar_complejidad(prompt)
+    if modelo_elegido != modelo_solicitado:
+        metadata["rule"] = "Enrutamiento por Complejidad"
+        
     url_destino = PROVEEDOR_A_URL if modelo_elegido == "llama3.2:3b" else PROVEEDOR_B_URL
 
     # 2. Aplicar Criterio 2: FinOps (Degradación controlada de servicio por presupuesto crítico)
@@ -103,6 +108,7 @@ async def enrutar_peticion(prompt: str, porcentaje_presupuesto_gastado: float, m
         logger.warning("Alerta FinOps: consumo >= 90%%. Forzando degradación a llama3.2:3b para mitigar costes.")
         modelo_elegido = "llama3.2:3b"
         url_destino = PROVEEDOR_A_URL
+        metadata["rule"] = "Degradación FinOps"
 
     # 3. Construir el cuerpo de la petición (Payload) compatible con OpenAI / Ollama
     payload = {
@@ -119,30 +125,12 @@ async def enrutar_peticion(prompt: str, porcentaje_presupuesto_gastado: float, m
             respuesta = await client.post(url_destino, json=payload, timeout=30.0)
             respuesta.raise_for_status()
 
-            # Devolvemos el JSON tal cual responde Ollama, pero enriquecemos si faltan campos
-            resp_json = respuesta.json()
-
-            # Aseguramos que `model` exista en la respuesta
-            if isinstance(resp_json, dict) and "model" not in resp_json:
-                resp_json["model"] = modelo_elegido
-
-            # Aseguramos que `usage` exista; si no, estimamos a partir del prompt y del texto devuelto
-            if isinstance(resp_json, dict) and ("usage" not in resp_json or not resp_json.get("usage")):
-                # Intentamos extraer texto de la respuesta
-                texto_respuesta = None
-                try:
-                    texto_respuesta = resp_json.get("choices", [])[0].get("message", {}).get("content")
-                except Exception:
-                    texto_respuesta = None
-
-                p_tokens, c_tokens = _estimate_tokens_from_text(prompt, texto_respuesta)
-                resp_json["usage"] = {"prompt_tokens": p_tokens, "completion_tokens": c_tokens, "total_tokens": p_tokens + c_tokens}
-
-            return resp_json
+            # Devolvemos el JSON tal cual responde Ollama
+            return respuesta.json(), metadata
 
     except httpx.HTTPStatusError as e:
         logger.exception("El proveedor de IA devolvió un error de estado")
-        return {"error": "Error interno del proveedor de IA", "detalles": str(e)}
+        return {"error": "Error interno del proveedor de IA", "detalles": str(e)}, metadata
     except httpx.RequestError as e:
         logger.exception("Error de red al intentar conectar con el proveedor")
-        return {"error": "No se pudo establecer conexión con el motor de IA", "detalles": str(e)}
+        return {"error": "No se pudo establecer conexión con el motor de IA", "detalles": str(e)}, metadata

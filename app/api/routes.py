@@ -18,7 +18,7 @@ class ChatCompletionRequest(BaseModel):
     temperature: Optional[float] = None
     max_tokens: Optional[int] = None
 
-def _construir_respuesta_mock(modelo: str, texto: str, p_tokens: int, c_tokens: int) -> dict:
+def _construir_respuesta_cache(modelo: str, texto: str, p_tokens: int, c_tokens: int) -> dict:
     return {
         "id": f"chatcmpl-cache-{int(time.time())}",
         "object": "chat.completion",
@@ -63,7 +63,9 @@ async def chat_completions(
     porcentaje_gastado = (consumer_data["current_spend"] / consumer_data["budget_limit"]) * 100
     if porcentaje_gastado >= 80.0:
         print(f"🚨 [ALERTA FINOPS] ¡ATENCIÓN! El equipo '{x_consumer_id}' está al límite de su presupuesto. Consumo actual: {porcentaje_gastado:.2f}% 🚨")
-
+        
+    modelo_solicitado = request.model
+    
     # Paso C: Caché Semántica
     prompt_usuario = request.messages[-1].content
     cache_result = buscar_en_cache(prompt_usuario)
@@ -71,28 +73,43 @@ async def chat_completions(
         print("-> [Caché] ¡Acierto! Devolviendo respuesta cacheada (Coste 0).")
         # Aseguramos extraer texto (soportando posible formato string o dict/tuple devuelto por la db)
         texto_cacheado = cache_result if isinstance(cache_result, str) else cache_result[0] if isinstance(cache_result, tuple) else cache_result.get("respuesta", str(cache_result))
-        return _construir_respuesta_mock(request.model, texto_cacheado, p_tokens=0, c_tokens=0)
+        
+        # Calculate theoretical cost for savings
+        tarifas_solicitado = PRECIOS.get(modelo_solicitado, {"entrada": 0, "salida": 0})
+        p_tokens = max(1, len(prompt_usuario) // 4)
+        c_tokens = max(1, len(texto_cacheado) // 4)
+        coste_solicitado = (p_tokens * tarifas_solicitado["entrada"] / 1_000_000) + (c_tokens * tarifas_solicitado["salida"] / 1_000_000)
+        
+        log_usage(x_consumer_id, modelo_solicitado, "caché", 0, 0, 0.0, "Caché Semántica", coste_solicitado)
+        return _construir_respuesta_cache(modelo_solicitado, texto_cacheado, p_tokens=0, c_tokens=0)
 
     # Paso D: Enrutamiento Real
     mensajes_completos = [{"role": msg.role, "content": msg.content} for msg in request.messages]
-    ia_response = await enrutar_peticion(prompt_usuario, porcentaje_gastado, mensajes_completos)
+    ia_response, metadata = await enrutar_peticion(prompt_usuario, porcentaje_gastado, mensajes_completos, modelo_solicitado)
     
     if "error" in ia_response:
         raise HTTPException(status_code=500, detail=ia_response.get("detalles", ia_response["error"]))
 
     # Paso E: Cálculo de Coste Exacto
-    modelo_real = ia_response.get("model", request.model)
+    modelo_real = ia_response.get("model", modelo_solicitado)
     usage = ia_response.get("usage", {})
     prompt_tokens = usage.get("prompt_tokens", 0)
     completion_tokens = usage.get("completion_tokens", 0)
     
-    # Obtenemos precios (por millón) y calculamos coste
-    tarifas = PRECIOS.get(modelo_real, {"entrada": 0, "salida": 0})
-    coste_total = (prompt_tokens * tarifas["entrada"] / 1_000_000) + (completion_tokens * tarifas["salida"] / 1_000_000)
+    # Obtenemos precios (por millón) y calculamos coste real
+    tarifas_reales = PRECIOS.get(modelo_real, {"entrada": 0, "salida": 0})
+    coste_total = (prompt_tokens * tarifas_reales["entrada"] / 1_000_000) + (completion_tokens * tarifas_reales["salida"] / 1_000_000)
+
+    # Calculamos coste si se hubiera usado el modelo solicitado
+    tarifas_solicitadas = PRECIOS.get(modelo_solicitado, {"entrada": 0, "salida": 0})
+    coste_solicitado = (prompt_tokens * tarifas_solicitadas["entrada"] / 1_000_000) + (completion_tokens * tarifas_solicitadas["salida"] / 1_000_000)
+    
+    savings = max(0.0, coste_solicitado - coste_total)
+    applied_rule = metadata.get("rule", "Ninguna")
 
     # Paso F: Persistencia
     print(f"-> [FinOps Log] Registrando coste exacto: ${coste_total:.6f} en {modelo_real}")
-    log_usage(x_consumer_id, modelo_real, prompt_tokens, completion_tokens, coste_total)
+    log_usage(x_consumer_id, modelo_solicitado, modelo_real, prompt_tokens, completion_tokens, coste_total, applied_rule, savings)
 
     # Paso G: Guardar Caché
     try:
