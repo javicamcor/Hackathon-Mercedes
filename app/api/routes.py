@@ -41,6 +41,21 @@ def _construir_respuesta_cache(modelo: str, texto: str, p_tokens: int, c_tokens:
         }
     }
 
+
+def _calcular_coste(modelo: str, prompt_tokens: int, completion_tokens: int) -> float:
+    tarifas = PRECIOS.get(modelo, {"entrada": 0.0, "salida": 0.0})
+    return (prompt_tokens * tarifas["entrada"] / 1_000_000) + (completion_tokens * tarifas["salida"] / 1_000_000)
+
+
+def _estimar_modelo_contrario(modelo_real: str, prompt_tokens: int, completion_tokens: int) -> tuple[str, int, int]:
+    """Estima los tokens del modelo contrario usando la relación media 18% menos de llama frente a mistral."""
+    ratio_llama_vs_mistral = 0.82
+    if modelo_real == "llama3.2:3b":
+        return "mistral:7b", prompt_tokens, max(1, round(completion_tokens / ratio_llama_vs_mistral))
+    if modelo_real == "mistral:7b":
+        return "llama3.2:3b", prompt_tokens, max(1, round(completion_tokens * ratio_llama_vs_mistral))
+    return modelo_real, prompt_tokens, completion_tokens
+
 @router.post("/v1/chat/completions")
 async def chat_completions(
     request: ChatCompletionRequest,
@@ -70,18 +85,15 @@ async def chat_completions(
     prompt_usuario = request.messages[-1].content
     cache_result = buscar_en_cache(prompt_usuario)
     if cache_result:
-        print("-> [Caché] ¡Acierto! Devolviendo respuesta cacheada (Coste 0).")
-        # Aseguramos extraer texto (soportando posible formato string o dict/tuple devuelto por la db)
-        texto_cacheado = cache_result if isinstance(cache_result, str) else cache_result[0] if isinstance(cache_result, tuple) else cache_result.get("respuesta", str(cache_result))
-        
-        # Calculate theoretical cost for savings
-        tarifas_solicitado = PRECIOS.get(modelo_solicitado, {"entrada": 0, "salida": 0})
-        p_tokens = max(1, len(prompt_usuario) // 4)
-        c_tokens = max(1, len(texto_cacheado) // 4)
-        coste_solicitado = (p_tokens * tarifas_solicitado["entrada"] / 1_000_000) + (c_tokens * tarifas_solicitado["salida"] / 1_000_000)
-        
-        log_usage(x_consumer_id, modelo_solicitado, "caché", 0, 0, 0.0, "Caché Semántica", coste_solicitado)
-        return _construir_respuesta_cache(modelo_solicitado, texto_cacheado, p_tokens=0, c_tokens=0)
+        print("-> [Caché] ¡Acierto! Devolviendo respuesta cacheada.")
+        texto_cacheado = cache_result.get("respuesta", "")
+        coste_original = float(cache_result.get("original_cost", 0.0))
+
+        # En caché, el ahorro es exactamente el coste previo real de la petición original.
+        log_usage(x_consumer_id, modelo_solicitado, "caché", 0, 0, 0.0, "Caché Semántica", coste_original)
+        respuesta_cache = _construir_respuesta_cache(modelo_solicitado, texto_cacheado, p_tokens=0, c_tokens=0)
+        respuesta_cache["savings"] = coste_original
+        return respuesta_cache
 
     # Paso D: Enrutamiento Real
     mensajes_completos = [{"role": msg.role, "content": msg.content} for msg in request.messages]
@@ -96,15 +108,15 @@ async def chat_completions(
     prompt_tokens = usage.get("prompt_tokens", 0)
     completion_tokens = usage.get("completion_tokens", 0)
     
-    # Obtenemos precios (por millón) y calculamos coste real
-    tarifas_reales = PRECIOS.get(modelo_real, {"entrada": 0, "salida": 0})
-    coste_total = (prompt_tokens * tarifas_reales["entrada"] / 1_000_000) + (completion_tokens * tarifas_reales["salida"] / 1_000_000)
+    coste_total = _calcular_coste(modelo_real, prompt_tokens, completion_tokens)
 
-    # Calculamos coste si se hubiera usado el modelo solicitado
-    tarifas_solicitadas = PRECIOS.get(modelo_solicitado, {"entrada": 0, "salida": 0})
-    coste_solicitado = (prompt_tokens * tarifas_solicitadas["entrada"] / 1_000_000) + (completion_tokens * tarifas_solicitadas["salida"] / 1_000_000)
-    
-    savings = max(0.0, coste_solicitado - coste_total)
+    # Estimamos el coste del modelo contrario usando la relación media de tokens.
+    modelo_contrario, prompt_tokens_contrario, completion_tokens_contrario = _estimar_modelo_contrario(
+        modelo_real, prompt_tokens, completion_tokens
+    )
+    coste_modelo_contrario = _calcular_coste(modelo_contrario, prompt_tokens_contrario, completion_tokens_contrario)
+
+    savings = max(0.0, coste_modelo_contrario - coste_total)
     applied_rule = metadata.get("rule", "Ninguna")
 
     # Paso F: Persistencia
@@ -114,7 +126,7 @@ async def chat_completions(
     # Paso G: Guardar Caché
     try:
         texto_generado = ia_response["choices"][0]["message"]["content"]
-        guardar_en_cache(prompt_usuario, texto_generado, modelo_real)
+        guardar_en_cache(prompt_usuario, texto_generado, modelo_real, original_cost=coste_total)
     except (KeyError, IndexError) as e:
         print(f"-> [Advertencia] No se pudo guardar en caché (estructura inesperada): {e}")
 

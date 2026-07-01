@@ -1,3 +1,5 @@
+import json
+import json
 import sqlite3
 import datetime
 import hashlib  # Añadido para generar el hash de la caché
@@ -134,22 +136,38 @@ def buscar_en_cache(prompt):
     conn.close()
 
     if resultado:
-        print("⚡ Devolviendo respuesta guardada en caché (Coste: $0.00)")
-        return {"respuesta": resultado[0], "modelo": resultado[1]}
+        print("⚡ Devolviendo respuesta guardada en caché")
+        respuesta_raw, modelo_usado = resultado
+
+        # Compatibilidad con cachés antiguas (texto plano) y nuevas (JSON con original_cost)
+        try:
+            payload = json.loads(respuesta_raw)
+            return {
+                "respuesta": payload.get("respuesta", ""),
+                "modelo": payload.get("modelo", modelo_usado),
+                "original_cost": float(payload.get("original_cost", 0.0)),
+            }
+        except (TypeError, json.JSONDecodeError, ValueError):
+            return {"respuesta": respuesta_raw, "modelo": modelo_usado, "original_cost": 0.0}
     return None
 
-def guardar_en_cache(prompt, respuesta_texto, modelo):
+def guardar_en_cache(prompt, respuesta_texto, modelo, original_cost=0.0):
     """Guarda la respuesta en la base de datos para futuras consultas."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
     prompt_hash = _generar_hash(prompt)
+    payload = json.dumps({
+        "respuesta": respuesta_texto,
+        "modelo": modelo,
+        "original_cost": float(original_cost),
+    }, ensure_ascii=False)
 
-    # Usamos INSERT OR IGNORE por si hay duplicados
+    # Usamos INSERT OR REPLACE para mantener actualizada la metadata de caché.
     cursor.execute('''
-                   INSERT OR IGNORE INTO cache (prompt_hash, respuesta_texto, modelo_usado)
+                   INSERT OR REPLACE INTO cache (prompt_hash, respuesta_texto, modelo_usado)
                    VALUES (?, ?, ?)
-                   ''', (prompt_hash, respuesta_texto, modelo))
+                   ''', (prompt_hash, payload, modelo))
 
     conn.commit()
     conn.close()

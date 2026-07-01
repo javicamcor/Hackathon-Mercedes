@@ -70,7 +70,7 @@ st.markdown("""
         position: relative;
         overflow: hidden;
     }
-    
+
     /* Efecto de brillo (shine) al pasar el ratón */
     .metric-card::before {
         content: '';
@@ -80,17 +80,17 @@ st.markdown("""
         background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
         transition: 0.5s;
     }
-    
+
     .metric-card:hover {
         transform: translateY(-8px) scale(1.02);
         border: 1px solid rgba(139, 92, 246, 0.3);
         box-shadow: 0 20px 40px -10px rgba(139, 92, 246, 0.2);
     }
-    
+
     .metric-card:hover::before {
         left: 100%;
     }
-    
+
     /* Valores de métricas con gradientes */
     .metric-value {
         font-size: 1.8rem;
@@ -101,7 +101,7 @@ st.markdown("""
         margin-bottom: 12px;
         line-height: 1.2;
     }
-    
+
     .metric-label {
         font-size: 0.95rem;
         color: #cbd5e1;
@@ -109,20 +109,20 @@ st.markdown("""
         text-transform: uppercase;
         letter-spacing: 1.5px;
     }
-    
+
     .savings-value {
         background: linear-gradient(135deg, #34d399, #10b981, #059669);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
     }
-    
+
     /* Mejoras en las pestañas de Streamlit */
     div[data-testid="stTabs"] button {
         font-size: 1.1rem;
         font-weight: 600;
         padding-bottom: 1rem;
     }
-    
+
     /* Separadores sutiles */
     hr {
         border-color: rgba(255,255,255,0.05);
@@ -150,25 +150,25 @@ if conn:
     if not cursor.fetchone():
         st.warning("⚠️ La base de datos aún no ha sido inicializada por el backend. Ejecuta el proxy primero.")
         st.stop()
-        
+
     df_consumers = pd.read_sql_query("SELECT id, name as nombre, budget_limit as presupuesto_maximo, current_spend as gasto_actual FROM consumers", conn)
-    
+
     df_logs = pd.read_sql_query("""
-        SELECT 
-            id, 
-            consumer_name as consumer_id, 
-            IFNULL(requested_model, provider_model) as modelo_solicitado, 
-            provider_model as modelo_usado, 
-            prompt_tokens, 
-            completion_tokens, 
-            total_cost as coste_total, 
+        SELECT
+            id,
+            consumer_name as consumer_id,
+            IFNULL(requested_model, provider_model) as modelo_solicitado,
+            provider_model as modelo_usado,
+            prompt_tokens,
+            completion_tokens,
+            total_cost as coste_total,
             IFNULL(applied_rule, 'Ninguna') as regla_aplicada,
             IFNULL(savings, 0.0) as ahorro_generado,
-            timestamp 
+            timestamp
         FROM logs
     """, conn)
     conn.close()
-    
+
     if not df_logs.empty:
         df_logs['timestamp'] = pd.to_datetime(df_logs['timestamp'])
         model_cols = ['modelo_usado', 'provider_model', 'model_used']
@@ -206,7 +206,9 @@ else:
 gasto_total = df_consumers["gasto_actual"].sum()
 presupuesto_total = df_consumers["presupuesto_maximo"].sum()
 ahorro_total = df_logs["ahorro_generado"].sum() if 'ahorro_generado' in df_logs.columns else 0.0
-peticiones_optimizadas = len(df_logs[df_logs["regla_aplicada"] != "Ninguna"]) if 'regla_aplicada' in df_logs.columns else 0
+# Porcentaje de ahorro sobre el coste total + ahorro.
+ahorro_pct = (ahorro_total / (gasto_total + ahorro_total) * 100.0) if (gasto_total + ahorro_total) > 0 else 0.0
+ahorro_pct = max(0.0, min(100.0, ahorro_pct))
 
 # --- Layout del Dashboard ---
 st.markdown("<h1 class='header-title'>AI FinOps Proxy</h1>", unsafe_allow_html=True)
@@ -222,12 +224,12 @@ with tab1:
     with col2:
         st.markdown(f'''<div class="metric-card"><div class="metric-value">${presupuesto_total:.2f}</div><div class="metric-label">Presupuesto Global</div></div>''', unsafe_allow_html=True)
     with col3:
-        st.markdown(f'''<div class="metric-card"><div class="metric-value savings-value">${ahorro_total:.4f}</div><div class="metric-label">Ahorro Generado ({peticiones_optimizadas} peticiones)</div></div>''', unsafe_allow_html=True)
-    
+        st.markdown(f'''<div class="metric-card"><div class="metric-value savings-value">${ahorro_total:.4f}</div><div class="metric-label">Costo Ahorrado</div></div>''', unsafe_allow_html=True)
+
     st.write("---")
     st.subheader("Control de Presupuesto por Equipo")
     cols = st.columns(len(df_consumers) if not df_consumers.empty else 1)
-    
+
     for idx, row in df_consumers.iterrows():
         with cols[idx]:
             porcentaje = (row["gasto_actual"] / row["presupuesto_maximo"]) * 100 if row["presupuesto_maximo"] > 0 else 0
@@ -355,6 +357,7 @@ with tab2:
         
 with tab3:
     st.subheader("Impacto de Reglas de Optimización")
+    st.markdown(f'''<div class="metric-card"><div class="metric-value savings-value">{ahorro_pct:.2f}%</div><div class="metric-label">Porcentaje de Ahorro</div></div>''', unsafe_allow_html=True)
     if not df_logs.empty and 'regla_aplicada' in df_logs.columns:
         df_rules = df_logs[df_logs['regla_aplicada'] != 'Ninguna']
         if not df_rules.empty:
@@ -388,3 +391,4 @@ with tab3:
                 "ahorro_generado": st.column_config.NumberColumn("Ahorro ($)", format="%.5f")
             }
         )
+
