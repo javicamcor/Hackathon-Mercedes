@@ -100,98 +100,33 @@ def get_connection():
         st.error(f"Error conectando a la base de datos: {e}")
         return None
 
-def init_mock_db():
-    """Inicializa la DB con datos falsos si no existen tablas, para que la UI funcione durante el desarrollo."""
-    conn = get_connection()
-    if not conn:
-        return
-    cursor = conn.cursor()
-    
-    # Check if we need to migrate the old mock db. If logs table doesn't have 'regla_aplicada', drop it to recreate.
-    try:
-        cursor.execute("SELECT regla_aplicada FROM logs LIMIT 1")
-    except sqlite3.OperationalError:
-        cursor.execute("DROP TABLE IF EXISTS logs")
-        cursor.execute("DROP TABLE IF EXISTS consumers")
-        
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS consumers (
-            id TEXT PRIMARY KEY,
-            nombre TEXT,
-            presupuesto_maximo REAL,
-            gasto_actual REAL
-        )
-    ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            consumer_id TEXT,
-            modelo_solicitado TEXT,
-            modelo_usado TEXT,
-            prompt_tokens INTEGER,
-            completion_tokens INTEGER,
-            coste_total REAL,
-            regla_aplicada TEXT,
-            ahorro_generado REAL,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    
-    # Insert mock data if empty
-    cursor.execute("SELECT COUNT(*) FROM consumers")
-    if cursor.fetchone()[0] == 0:
-        cursor.execute("INSERT INTO consumers (id, nombre, presupuesto_maximo, gasto_actual) VALUES ('equipo-marketing', 'Marketing', 10.0, 8.5)")
-        cursor.execute("INSERT INTO consumers (id, nombre, presupuesto_maximo, gasto_actual) VALUES ('equipo-producto', 'Producto', 5.0, 1.2)")
-        
-        import datetime
-        import random
-        
-        now = datetime.datetime.now()
-        
-        # Generar logs de los últimos 7 días para poder visualizar tendencias
-        for i in range(50):
-            days_ago = random.uniform(0, 7)
-            ts = now - datetime.timedelta(days=days_ago)
-            
-            consumer = random.choice(['equipo-marketing', 'equipo-producto', 'equipo-marketing'])
-            modelo_solic = random.choice(['gpt-4', 'mistral:7b', 'llama3.2:3b'])
-            
-            # Simulamos las reglas de enrutamiento del proxy
-            if modelo_solic == 'gpt-4':
-                modelo_usado = 'mistral:7b'
-                regla = 'Fallback de Provider Costoso'
-                ahorro = random.uniform(0.01, 0.05)
-            elif modelo_solic == 'mistral:7b' and random.random() > 0.5:
-                modelo_usado = 'llama3.2:3b'
-                regla = 'Enrutamiento Tarea Sencilla'
-                ahorro = random.uniform(0.001, 0.01)
-            else:
-                modelo_usado = modelo_solic
-                regla = 'Ninguna'
-                ahorro = 0.0
-                
-            p_tokens = random.randint(100, 3000)
-            c_tokens = random.randint(50, 1500)
-            
-            # Coste base ficticio para mock
-            coste = (p_tokens + c_tokens) * 0.000002
-            
-            cursor.execute('''
-                INSERT INTO logs (consumer_id, modelo_solicitado, modelo_usado, prompt_tokens, completion_tokens, coste_total, regla_aplicada, ahorro_generado, timestamp)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (consumer, modelo_solic, modelo_usado, p_tokens, c_tokens, coste, regla, ahorro, ts.strftime('%Y-%m-%d %H:%M:%S')))
-            
-        conn.commit()
-    conn.close()
-
-# Cargar mock DB para demo si está vacío
-init_mock_db()
-
 # --- Obtención de Datos ---
 conn = get_connection()
 if conn:
-    df_consumers = pd.read_sql_query("SELECT * FROM consumers", conn)
-    df_logs = pd.read_sql_query("SELECT * FROM logs", conn)
+    # Verificamos si las tablas reales existen (por si el backend aún no ha sido ejecutado)
+    cursor = conn.cursor()
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='consumers'")
+    if not cursor.fetchone():
+        st.warning("⚠️ La base de datos aún no ha sido inicializada por el backend. Ejecuta el proxy primero.")
+        st.stop()
+        
+    df_consumers = pd.read_sql_query("SELECT id, name as nombre, budget_limit as presupuesto_maximo, current_spend as gasto_actual FROM consumers", conn)
+    
+    # Adaptar los nombres de las columnas de logs del proxy a los esperados por el dashboard
+    df_logs = pd.read_sql_query("""
+        SELECT 
+            id, 
+            consumer_name as consumer_id, 
+            IFNULL(requested_model, provider_model) as modelo_solicitado, 
+            provider_model as modelo_usado, 
+            prompt_tokens, 
+            completion_tokens, 
+            total_cost as coste_total, 
+            IFNULL(applied_rule, 'Ninguna') as regla_aplicada,
+            IFNULL(savings, 0.0) as ahorro_generado,
+            timestamp 
+        FROM logs
+    """, conn)
     conn.close()
     
     # Convertir timestamp a datetime para gráficas temporales
