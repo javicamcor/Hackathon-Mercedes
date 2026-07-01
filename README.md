@@ -25,7 +25,7 @@ Para avanzar en paralelo y evitar conflictos de código, el trabajo se divide en
   * Crear `api.py` con un endpoint POST en `/v1/chat/completions`.
   * Extraer el identificador del consumidor desde los headers (ej. `X-Consumer-ID: equipo-marketing`).
   * Llamar a las funciones de base de datos para verificar el presupuesto ANTES de procesar.
-  * Llamar al Enrutador para obtener la respuesta de la IA.
+  * Llamar al Enrutador (router.py) para obtener la respuesta de la IA.
   * Devolver el JSON final al usuario exactamente con el formato de OpenAI.
 
 ### 📊 2. El Contable (Base de Datos) -> Asignado a: Javier Campos Córcoles
