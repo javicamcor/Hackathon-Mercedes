@@ -51,7 +51,7 @@ async def chat_completions(
     if not x_consumer_id:
         print("-> [Interceptor] Error: Falta cabecera X-Consumer-ID")
         raise HTTPException(status_code=400, detail="X-Consumer-ID header is required")
-        
+
     print(f"-> [Interceptor] Consumidor identificado: {x_consumer_id}")
     
     # Paso A: Verificar Presupuesto
@@ -63,7 +63,7 @@ async def chat_completions(
     porcentaje_gastado = (consumer_data["current_spend"] / consumer_data["budget_limit"]) * 100
     if porcentaje_gastado >= 80.0:
         print(f"🚨 [ALERTA FINOPS] ¡ATENCIÓN! El equipo '{x_consumer_id}' está al límite de su presupuesto. Consumo actual: {porcentaje_gastado:.2f}% 🚨")
-        
+
     # Paso C: Caché Semántica
     prompt_usuario = request.messages[-1].content
     cache_result = buscar_en_cache(prompt_usuario)
