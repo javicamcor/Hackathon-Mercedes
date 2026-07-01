@@ -16,6 +16,10 @@ async def test_evaluar_complejidad_tecnica():
     assert evaluar_complejidad("Escribe un script en python para web scraping") == "mistral:7b"
 
 
+async def test_evaluar_complejidad_tecnica_con_tildes():
+    assert evaluar_complejidad("Analiza la complejidad de una función asíncrona en Python") == "mistral:7b"
+
+
 async def test_enrutado_por_presupuesto_alto():
     prompt = "Escribe un script en python para web scraping"
     mensajes = [{"role": "user", "content": prompt}]
@@ -40,6 +44,9 @@ async def main():
 
     await test_evaluar_complejidad_tecnica()
     print("OK: complejidad técnica")
+
+    await test_evaluar_complejidad_tecnica_con_tildes()
+    print("OK: complejidad técnica con tildes")
 
     await test_enrutado_por_presupuesto_alto()
     print("OK: enrutado con presupuesto alto")

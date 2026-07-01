@@ -51,7 +51,7 @@ async def chat_completions(
     if not x_consumer_id:
         print("-> [Interceptor] Error: Falta cabecera X-Consumer-ID")
         raise HTTPException(status_code=400, detail="X-Consumer-ID header is required")
-        
+
     print(f"-> [Interceptor] Consumidor identificado: {x_consumer_id}")
     
     # Paso A: Verificar Presupuesto

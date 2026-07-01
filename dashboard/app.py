@@ -132,6 +132,42 @@ if conn:
     # Convertir timestamp a datetime para gráficas temporales
     if not df_logs.empty:
         df_logs['timestamp'] = pd.to_datetime(df_logs['timestamp'])
+        # Normalizar nombres de columnas para compatibilidad entre mock y DB real
+        # Model usado
+        model_cols = ['modelo_usado', 'provider_model', 'model_used']
+        for c in model_cols:
+            if c in df_logs.columns:
+                df_logs['model_used'] = df_logs[c]
+                break
+        if 'model_used' not in df_logs.columns:
+            df_logs['model_used'] = 'unknown'
+
+        # Coste total
+        cost_cols = ['coste_total', 'total_cost', 'coste']
+        for c in cost_cols:
+            if c in df_logs.columns:
+                df_logs['coste_total'] = df_logs[c]
+                break
+        if 'coste_total' not in df_logs.columns:
+            df_logs['coste_total'] = 0.0
+
+        # Regla aplicada
+        regla_cols = ['regla_aplicada']
+        for c in regla_cols:
+            if c in df_logs.columns:
+                df_logs['regla_aplicada'] = df_logs[c]
+                break
+        if 'regla_aplicada' not in df_logs.columns:
+            df_logs['regla_aplicada'] = 'Ninguna'
+
+        # Ahorro generado
+        ahorro_cols = ['ahorro_generado']
+        for c in ahorro_cols:
+            if c in df_logs.columns:
+                df_logs['ahorro_generado'] = df_logs[c]
+                break
+        if 'ahorro_generado' not in df_logs.columns:
+            df_logs['ahorro_generado'] = 0.0
 else:
     st.stop()
 
