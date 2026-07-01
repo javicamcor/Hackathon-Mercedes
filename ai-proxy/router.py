@@ -1,10 +1,11 @@
-import requests
+import httpx
+import asyncio
 
-# Configuración de los Proveedores (URLs según el Starter Kit)
+# Configuración de los Proveedores (URLs locales configuradas en el docker-compose del Starter Kit)
 PROVEEDOR_A_URL = "http://localhost:11434/v1/chat/completions"
 PROVEEDOR_B_URL = "http://localhost:11435/v1/chat/completions"
 
-# Precios por cada 1,000,000 de tokens
+# Precios de referencia por cada 1,000,000 de tokens (según la tabla del README)
 PRECIOS = {
     "llama3.2:3b": {"entrada": 0.06, "salida": 0.06},
     "mistral:7b": {"entrada": 0.24, "salida": 0.24}
@@ -12,70 +13,93 @@ PRECIOS = {
 
 def evaluar_complejidad(prompt: str) -> str:
     """
-    CRITERIO 1: Evalúa la complejidad del prompt.
-    Si tiene menos de 100 caracteres, asumimos que es simple y usamos Llama 3.2 (Barato).
-    Si es más largo, usamos Mistral (Caro).
+    CRITERIO 1: Evalúa la complejidad del prompt basándose en su longitud.
+    Si tiene menos de 100 caracteres, asumimos que es una tarea simple -> Llama 3.2 (Barato).
+    Si es más largo, asumimos que requiere más razonamiento -> Mistral (Caro).
     """
-    if len(prompt) < 100:
-        print(f"   -> [Cerebro] Prompt corto ({len(prompt)} caracteres). Elegido: llama3.2:3b")
+    UMBRAL_CARACTERES = 100
+    
+    if len(prompt) < UMBRAL_CARACTERES:
+        print(f"   -> [Cerebro] Prompt corto ({len(prompt)} caracteres). Modelo óptimo: llama3.2:3b")
         return "llama3.2:3b"
     else:
-        print(f"   -> [Cerebro] Prompt largo ({len(prompt)} caracteres). Elegido: mistral:7b")
+        print(f"   -> [Cerebro] Prompt largo ({len(prompt)} caracteres). Modelo óptimo: mistral:7b")
         return "mistral:7b"
 
 
-def enrutar_peticion(prompt: str, porcentaje_presupuesto_gastado: float, mensajes_completos: list) -> dict:
+async def enrutar_peticion(prompt: str, porcentaje_presupuesto_gastado: float, mensajes_completos: list) -> dict:
     """
-    Función principal que decide el modelo, modifica el body para adaptarlo 
-    al proveedor y hace la llamada HTTP.
+    Función principal de El Cerebro (Módulo 3).
+    Decide el modelo, aplica políticas FinOps de ahorro y gestiona la llamada HTTP asíncrona.
     """
-    print(f"\n[Cerebro] Evaluando ruta para el prompt. Presupuesto gastado: {porcentaje_presupuesto_gastado:.2f}%")
+    print(f"\n[Cerebro] Evaluando enrutamiento. Gasto actual del consumidor: {porcentaje_presupuesto_gastado:.2f}%")
     
-    # 1. Aplicar Criterio 1: Complejidad
+    # 1. Aplicar Criterio 1: Complejidad del prompt
     modelo_elegido = evaluar_complejidad(prompt)
     url_destino = PROVEEDOR_A_URL if modelo_elegido == "llama3.2:3b" else PROVEEDOR_B_URL
     
-    # 2. Aplicar Criterio 2: FinOps (Degradación controlada)
+    # 2. Aplicar Criterio 2: FinOps (Degradación controlada de servicio por presupuesto crítico)
+    # Si el equipo ya ha consumido el 90% o más de su dinero, forzamos el modelo barato (Proveedor A)
     if porcentaje_presupuesto_gastado >= 90.0 and modelo_elegido == "mistral:7b":
-        print("   ⚠️ [Cerebro] ¡Alerta FinOps! Consumo > 90%. Forzando degradación a llama3.2:3b para ahorrar.")
+        print("   ⚠️ [Cerebro] ¡Alerta FinOps! Consumo >= 90%. Forzando degradación a llama3.2:3b para mitigar costes.")
         modelo_elegido = "llama3.2:3b"
         url_destino = PROVEEDOR_A_URL
 
-    # 3. Preparar el body idéntico al formato OpenAI / Ollama
+    # 3. Construir el cuerpo de la petición (Payload) compatible con OpenAI / Ollama
     payload = {
         "model": modelo_elegido,
-        "messages": mensajes_completos,
+        "messages": mensajes_completos,  # Mantiene el historial de chat enviado por El Guardián
         "temperature": 0.7
     }
     
-    # 4. Hacer la llamada real al Ollama local correspondiente
+    # 4. Realizar la llamada HTTP asíncrona al Ollama correspondiente
     try:
-        print(f"   -> [Cerebro] Enviando petición a {url_destino}...")
-        respuesta = requests.post(url_destino, json=payload, timeout=30)
-        respuesta.raise_for_status()
-        return respuesta.json()
+        print(f"   -> [Cerebro] Conectando de forma asíncrona con {url_destino}...")
         
-    except requests.exceptions.RequestException as e:
-        print(f"   ❌ [Cerebro] Error al conectar con el proveedor: {e}")
-        return {"error": "No se pudo conectar con el proveedor de IA", "detalles": str(e)}
+        async with httpx.AsyncClient() as client:
+            respuesta = await client.post(url_destino, json=payload, timeout=30.0)
+            respuesta.raise_for_status()  # Lanza una excepción si el servidor devuelve un error (4xx o 5xx)
+            
+            # Devolvemos el JSON tal cual responde Ollama (incluyendo el objeto 'usage' con los tokens)
+            return respuesta.json()
+            
+    except httpx.HTTPStatusError as e:
+        print(f"   ❌ [Cerebro] El proveedor de IA devolvió un error de estado: {e}")
+        return {"error": "Error interno del proveedor de IA", "detalles": str(e)}
+    except httpx.RequestError as e:
+        print(f"   ❌ [Cerebro] Error de red al intentar conectar con el proveedor: {e}")
+        return {"error": "No se pudo establecer conexión con el motor de IA", "detalles": str(e)}
 
-# --- BLOQUE DE PRUEBA LOCAL ---
+# --- BLOQUE DE PRUEBA LOCAL EN CONSOLA ---
+# Este bloque solo se ejecuta cuando ejecutas este archivo directamente (python router.py)
 if __name__ == "__main__":
-    print("=== PROBANDO EL CEREBRO EN LOCAL ===")
     
-    # Simulación 1: Prompt corto, presupuesto saludable (Debería usar Llama 3.2)
-    prompt_corto = "Hola, ¿cómo estás?"
-    mensajes_1 = [{"role": "user", "content": prompt_corto}]
-    resultado_1 = enrutar_peticion(prompt_corto, porcentaje_presupuesto_gastado=10.0, mensajes_completos=mensajes_1)
-    
-    print("\n------------------------------------")
-    
-    # Simulación 2: Prompt largo, presupuesto saludable (Debería usar Mistral)
-    prompt_largo = "Necesito que escribas una función en Python muy compleja que ordene una lista de diccionarios por múltiples llaves dinámicas y que además gestione excepciones de tipos de datos de forma segura."
-    mensajes_2 = [{"role": "user", "content": prompt_largo}]
-    resultado_2 = enrutar_peticion(prompt_largo, porcentaje_presupuesto_gastado=15.0, mensajes_completos=mensajes_2)
+    async def ejecutar_pruebas_locales():
+        print("=== INICIANDO SIMULACIÓN DE PRUEBAS DE ENRUTAMIENTO (CEREBRO) ===")
+        
+        # Simulación 1: Prompt corto con presupuesto sano (Debería ir al Proveedor A - Llama 3.2)
+        prompt_1 = "Hola, ¿cuál es la capital de Francia?"
+        mensajes_1 = [{"role": "user", "content": prompt_1}]
+        await enrutar_peticion(prompt_1, porcentaje_presupuesto_gastado=12.5, mensajes_completos=mensajes_1)
+        
+        print("\n" + "-"*50)
+        
+        # Simulación 2: Prompt largo con presupuesto sano (Debería ir al Proveedor B - Mistral)
+        prompt_2 = (
+            "Escribe un script estructurado en Python que permita realizar web scraping de una página "
+            "de noticias de forma ética, utilizando BeautifulSoup, extrayendo títulos y enlaces, e "
+            "incluyendo un control de errores robusto para conexiones caídas o tags inexistentes."
+        )
+        mensajes_2 = [{"role": "user", "content": prompt_2}]
+        await enrutar_peticion(prompt_2, porcentaje_presupuesto_gastado=45.0, mensajes_completos=mensajes_2)
+        
+        print("\n" + "-"*50)
+        
+        # Simulación 3: Prompt largo pero presupuesto CRÍTICO (Debería saltar la alerta FinOps y forzar Llama 3.2)
+        print("Simulando escenario con el mismo prompt largo pero presupuesto agotándose...")
+        await enrutar_peticion(prompt_2, porcentaje_presupuesto_gastado=91.0, mensajes_completos=mensajes_2)
+        
+        print("\n=== SIMULACIÓN FINALIZADA ===")
 
-    print("\n------------------------------------")
-
-    # Simulación 3: Prompt largo pero presupuesto CRÍTICO (Debería forzar Llama 3.2 por FinOps)
-    resultado_3 = enrutar_peticion(prompt_largo, porcentaje_presupuesto_gastado=92.5, mensajes_completos=mensajes_2)
+    # Lanzamos el bucle de eventos asíncronos para poder ejecutar las pruebas locales
+    asyncio.run(ejecutar_pruebas_locales())
