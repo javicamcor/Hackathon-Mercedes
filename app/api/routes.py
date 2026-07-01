@@ -54,14 +54,20 @@ async def chat_completions(
 
     print(f"-> [Interceptor] Consumidor identificado: {x_consumer_id}")
     
+    if not request.messages:
+        raise HTTPException(status_code=400, detail="El array de mensajes no puede estar vacío.")
+        
     # Paso A: Verificar Presupuesto
     has_budget, consumer_data = check_budget(x_consumer_id)
     if not has_budget:
+        if isinstance(consumer_data, str):
+            print(f"-> [Interceptor] Error: {consumer_data} ({x_consumer_id})")
+            raise HTTPException(status_code=401, detail="Consumidor no registrado en el sistema")
+        
         mensaje_bloqueo = f"¡BLOQUEO! El equipo '{x_consumer_id}' ha agotado su presupuesto de ${consumer_data['budget_limit']}."
         print(f"[ALERTA FINOPS] {mensaje_bloqueo}")
         log_alert(x_consumer_id, mensaje_bloqueo)
         raise HTTPException(status_code=402, detail="Presupuesto agotado")
-        
     # Paso B: Alerta FinOps
     porcentaje_gastado = (consumer_data["current_spend"] / consumer_data["budget_limit"]) * 100
     if porcentaje_gastado >= 80.0:
