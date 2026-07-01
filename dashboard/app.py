@@ -169,21 +169,12 @@ if conn:
         if 'ahorro_generado' not in df_logs.columns:
             df_logs['ahorro_generado'] = 0.0
 
-        # Porcentaje de ahorro: se calcula usando el coste del modelo solicitado frente al coste real.
-        # Si no tenemos coste solicitado explícito en la BD, aproximamos con el coste real y la ratio
-        # de tokens entre modelos usando la media esperada.
-        def _estimate_requested_cost(row):
-            if row['modelo_solicitado'] == row['modelo_usado']:
-                return row['coste_total'] + row['ahorro_generado']
-            # Si se enruta desde mistral a llama, asumimos ~18% menos tokens en llama.
-            if row['modelo_solicitado'] == 'mistral:7b' and row['modelo_usado'] == 'llama3.2:3b':
-                return row['coste_total'] / 0.82
-            # En otros casos, tomamos el coste real como referencia conservadora.
-            return max(row['coste_total'], row['coste_total'] + row['ahorro_generado'])
-
-        df_logs['coste_referencia'] = df_logs.apply(_estimate_requested_cost, axis=1)
+        # Porcentaje de ahorro: se calcula solo con lo almacenado en BD.
+        # savings = coste de referencia - coste real  =>  referencia = coste_real + savings
+        # savings_pct = savings / referencia * 100
+        df_logs['coste_referencia'] = df_logs['coste_total'] + df_logs['ahorro_generado']
         df_logs['savings_pct'] = df_logs.apply(
-            lambda r: (r['ahorro_generado'] / r['coste_referencia'] * 100.0) if r['coste_referencia'] and r['coste_referencia'] > 0 else 0.0,
+            lambda r: max(0.0, min(100.0, (r['ahorro_generado'] / r['coste_referencia'] * 100.0))) if r['coste_referencia'] and r['coste_referencia'] > 0 else 0.0,
             axis=1,
         )
 else:
@@ -226,8 +217,6 @@ with col3:
             <div class="metric-label">Ahorro Generado ({peticiones_optimizadas} peticiones)</div>
         </div>
     ''', unsafe_allow_html=True)
-
-st.caption(f"Porcentaje medio de ahorro: {ahorro_pct_medio:.2f}%")
 
 st.write("---")
 
@@ -353,6 +342,28 @@ with tab2:
         
 with tab3:
     st.subheader("Impacto de Reglas de Optimización")
+    ahorro_col1, ahorro_col2 = st.columns(2)
+    with ahorro_col1:
+        st.markdown(
+            f'''
+            <div class="metric-card">
+                <div class="metric-value savings-value">{ahorro_pct_medio:.2f}%</div>
+                <div class="metric-label">Porcentaje medio de ahorro</div>
+            </div>
+            ''',
+            unsafe_allow_html=True,
+        )
+    with ahorro_col2:
+        st.markdown(
+            f'''
+            <div class="metric-card">
+                <div class="metric-value">${ahorro_total:.4f}</div>
+                <div class="metric-label">Ahorro total acumulado</div>
+            </div>
+            ''',
+            unsafe_allow_html=True,
+        )
+
     if not df_logs.empty and 'regla_aplicada' in df_logs.columns:
         df_rules = df_logs[df_logs['regla_aplicada'] != 'Ninguna']
         if not df_rules.empty:
@@ -361,7 +372,7 @@ with tab3:
                 coste_referencia=('coste_referencia', 'sum')
             ).reset_index()
             df_ahorro_por_regla['savings_pct'] = df_ahorro_por_regla.apply(
-                lambda r: (r['ahorro_generado'] / r['coste_referencia'] * 100.0) if r['coste_referencia'] and r['coste_referencia'] > 0 else 0.0,
+                lambda r: max(0.0, min(100.0, (r['ahorro_generado'] / r['coste_referencia'] * 100.0))) if r['coste_referencia'] and r['coste_referencia'] > 0 else 0.0,
                 axis=1,
             )
 
