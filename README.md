@@ -32,19 +32,19 @@ Para avanzar en paralelo y evitar conflictos de código, el trabajo se divide en
 ### 📊 2. El Contable (Base de Datos) -> Asignado a: Javier Campos Córcoles
 **Objetivo:** Persistir presupuestos, consumidores y registrar cada céntimo gastado.
 * **Stack:** Python + SQLite.
-* **Archivos:** `app/db/database.py` y `app/db/models.py`
+* **Archivo:** `app/db/database.py`
 * **Tareas:**
-  * Configurar la conexión a `finops.db` en `database.py`.
-  * Definir los esquemas/tablas en `models.py` (consumers y logs, guardando los JSON crudos).
+  * Configurar la conexión a `finops.db`.
+  * Definir la inicialización de las tablas SQLite (`consumers` y `logs`).
   * Programar funciones: `check_budget(consumer_id)`, `update_spend(...)` y `log_request(...)`.
 
 ### 🧠 3. El Cerebro (Enrutamiento IA) -> Asignado a: Hugo Enriquez Jimenez
 **Objetivo:** Decidir qué modelo usar en cada momento y conectarse a Ollama.
 * **Stack:** Python + `httpx`.
-* **Archivos:** `app/core/router.py` y `app/core/config.py`
+* **Archivo:** `app/core/router.py`
 * **Tareas:**
-  * Guardar variables de entorno o URLs base en `config.py`.
-  * Implementar la lógica de enrutamiento en `router.py` (Criterio de Complejidad y Criterio FinOps).
+  * Guardar URLs base y precios de referencia como constantes.
+  * Implementar la lógica de enrutamiento (Criterio de Complejidad y Criterio FinOps).
   * Usar `httpx.AsyncClient()` para conectarse de forma asíncrona a los contenedores locales.
 
 ### 📈 4. El Narrador (Dashboard FinOps) -> Asignado a: Jose Antonio Ponce Cerón
