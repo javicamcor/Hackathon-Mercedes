@@ -39,12 +39,12 @@ Para avanzar en paralelo y evitar conflictos de código, el trabajo se divide en
 
 ### 🧠 3. El Cerebro (Enrutamiento IA) -> Asignado a: Hugo Enriquez Jimenez
 **Objetivo:** Decidir qué modelo usar en cada momento y conectarse a Ollama.
-* **Stack:** Python + `requests`.
+* **Stack:** Python + `httpx`.
 * **Tareas:**
   * Crear `router.py`.
   * Implementar **Criterio 1 (Complejidad):** Si el prompt tiene menos de N caracteres o no requiere razonamiento profundo, enviar a `llama3.2:3b`. Si es complejo, a `mistral:7b`.
   * Implementar **Criterio 2 (FinOps):** Si el usuario ha consumido >90% de su presupuesto, forzar la caída a `llama3.2:3b` sin importar la complejidad del prompt (degradación controlada).
-  * Enviar el request HTTP a las URLs de Ollama y devolver el JSON de respuesta al Guardián.
+  * Usar httpx.AsyncClient() para enviar el request HTTP a las URLs de Ollama sin bloquear el hilo de FastAPI y devolver el JSON de respuesta al Guardián.
 
 ### 📈 4. El Narrador (Dashboard FinOps) -> Asignado a: Jose Antonio Ponce Cerón
 **Objetivo:** Dar visibilidad a los gastos y justificar el ahorro para la demo.
