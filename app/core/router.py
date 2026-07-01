@@ -109,7 +109,7 @@ async def enrutar_peticion(prompt: str, porcentaje_presupuesto_gastado: float, m
 
     try:
         async with httpx.AsyncClient() as client:
-            respuesta = await client.post(url_destino, json=payload, timeout=30.0)
+            respuesta = await client.post(url_destino, json=payload, timeout=300.0)
             respuesta.raise_for_status()
             resp_json = respuesta.json()
             if isinstance(resp_json, dict) and "model" not in resp_json:

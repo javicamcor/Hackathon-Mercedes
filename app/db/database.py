@@ -59,7 +59,7 @@ def insertar_consumidores_prueba():
     cursor = conn.cursor()
 
     equipos_prueba = [
-        ("equipo_desarrollo", 10.0, 0.0),
+        ("equipo_desarrollo", 10.0, 7.9999),
         ("equipo_marketing", 2.0, 1.95)
     ]
 
