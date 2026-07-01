@@ -87,15 +87,20 @@ def evaluar_complejidad(prompt: str) -> str:
     logger.info("Tarea conversacional simple. Modelo óptimo: llama3.2:3b")
     return "llama3.2:3b"
 
-async def enrutar_peticion(prompt: str, porcentaje_presupuesto_gastado: float, mensajes_completos: list) -> dict:
+async def enrutar_peticion(prompt: str, porcentaje_presupuesto_gastado: float, mensajes_completos: list, modelo_solicitado: str) -> tuple[dict, dict]:
     """
     Función principal de El Cerebro (Módulo 3).
     Decide el modelo, aplica políticas FinOps de ahorro y gestiona la llamada HTTP asíncrona.
     """
     logger.info("Evaluando enrutamiento. Gasto actual del consumidor: %.2f%%", porcentaje_presupuesto_gastado)
 
+    metadata = {"rule": "Ninguna"}
+
     # 1. Aplicar Criterio 1: Complejidad del prompt (Ahora con palabras clave)
     modelo_elegido = evaluar_complejidad(prompt)
+    if modelo_elegido != modelo_solicitado:
+        metadata["rule"] = "Enrutamiento por Complejidad"
+        
     url_destino = PROVEEDOR_A_URL if modelo_elegido == "llama3.2:3b" else PROVEEDOR_B_URL
 
     # 2. Aplicar Criterio 2: FinOps (Degradación controlada de servicio por presupuesto crítico)
@@ -103,6 +108,7 @@ async def enrutar_peticion(prompt: str, porcentaje_presupuesto_gastado: float, m
         logger.warning("Alerta FinOps: consumo >= 90%%. Forzando degradación a llama3.2:3b para mitigar costes.")
         modelo_elegido = "llama3.2:3b"
         url_destino = PROVEEDOR_A_URL
+        metadata["rule"] = "Degradación FinOps"
 
     # 3. Construir el cuerpo de la petición (Payload) compatible con OpenAI / Ollama
     payload = {
@@ -120,11 +126,11 @@ async def enrutar_peticion(prompt: str, porcentaje_presupuesto_gastado: float, m
             respuesta.raise_for_status()
 
             # Devolvemos el JSON tal cual responde Ollama
-            return respuesta.json()
+            return respuesta.json(), metadata
 
     except httpx.HTTPStatusError as e:
         logger.exception("El proveedor de IA devolvió un error de estado")
-        return {"error": "Error interno del proveedor de IA", "detalles": str(e)}
+        return {"error": "Error interno del proveedor de IA", "detalles": str(e)}, metadata
     except httpx.RequestError as e:
         logger.exception("Error de red al intentar conectar con el proveedor")
-        return {"error": "No se pudo establecer conexión con el motor de IA", "detalles": str(e)}
+        return {"error": "No se pudo establecer conexión con el motor de IA", "detalles": str(e)}, metadata

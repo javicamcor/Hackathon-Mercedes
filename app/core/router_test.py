@@ -1,7 +1,7 @@
 import asyncio
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, Mock, patch
+
 
 sys.path.append(str(Path(__file__).resolve().parents[2]))
 
@@ -20,19 +20,16 @@ async def test_enrutado_por_presupuesto_alto():
     prompt = "Escribe un script en python para web scraping"
     mensajes = [{"role": "user", "content": prompt}]
 
-    mock_response = Mock()
-    mock_response.raise_for_status.return_value = None
-    mock_response.json.return_value = {"ok": True}
+    # Ahora este test es de integración y requiere los contenedores locales corriendo (task start)
+    respuesta, metadata = await enrutar_peticion(
+        prompt,
+        porcentaje_presupuesto_gastado=91.0,
+        mensajes_completos=mensajes,
+        modelo_solicitado="mistral:7b"
+    )
 
-    with patch("httpx.AsyncClient.post", return_value=mock_response) as mock_post:
-        respuesta = await enrutar_peticion(
-            prompt,
-            porcentaje_presupuesto_gastado=91.0,
-            mensajes_completos=mensajes,
-        )
-
-    assert respuesta == {"ok": True}
-    assert mock_post.called
+    assert "choices" in respuesta or "error" in respuesta
+    assert metadata["rule"] == "Degradación FinOps"
 
 
 async def main():

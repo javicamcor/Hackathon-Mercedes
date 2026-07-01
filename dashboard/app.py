@@ -90,7 +90,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- Conexión a la Base de Datos ---
-DB_PATH = "finops.db"
+DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "finops.db")
 
 def get_connection():
     try:
