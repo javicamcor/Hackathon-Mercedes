@@ -16,44 +16,45 @@ Trabajamos con dos modelos locales servidos mediante Ollama, simulando dos prove
 
 ## 👥 Reparto del Equipo y Tareas
 
-Para avanzar en paralelo y evitar conflictos de código, el trabajo se divide en 4 módulos independientes:
+Para avanzar en paralelo y evitar conflictos de código, el trabajo se divide en 4 módulos independientes con sus respectivas carpetas:
 
 ### 🛡️ 1. El Guardián (Core Proxy) -> Asignado a: Juan Manuel Díaz Guardia
 **Objetivo:** Crear la puerta de entrada de todas las peticiones (el interceptor).
 * **Stack:** Python + FastAPI.
+* **Archivos:** `app/main.py` y `app/api/routes.py`
 * **Tareas:**
-  * Crear `api.py` con un endpoint POST en `/v1/chat/completions`.
-  * Extraer el identificador del consumidor desde los headers (ej. `X-Consumer-ID: equipo-marketing`).
-  * Llamar a las funciones de base de datos para verificar el presupuesto ANTES de procesar.
-  * Llamar al Enrutador (router.py) para obtener la respuesta de la IA.
-  * Devolver el JSON final al usuario exactamente con el formato de OpenAI.
+  * Configurar la app de FastAPI en `main.py`.
+  * Crear el endpoint POST en `/v1/chat/completions` dentro de `routes.py`.
+  * Extraer el identificador del consumidor desde los headers (ej. `X-Consumer-ID`).
+  * Interceptar la llamada llamando a la BD antes de procesar para verificar saldo.
+  * Llamar al Enrutador para obtener la respuesta de la IA y devolver el JSON de OpenAI.
 
 ### 📊 2. El Contable (Base de Datos) -> Asignado a: Javier Campos Córcoles
 **Objetivo:** Persistir presupuestos, consumidores y registrar cada céntimo gastado.
 * **Stack:** Python + SQLite.
+* **Archivos:** `app/db/database.py` y `app/db/models.py`
 * **Tareas:**
-  * Crear `database.py` que inicialice `finops.db`.
-  * Crear tabla `consumers` (id, nombre, presupuesto_maximo, gasto_actual).
-  * Crear tabla `logs` (id, consumer_id, modelo_usado, prompt_tokens, completion_tokens, coste_total, timestamp).
-  * Programar funciones: `check_budget(consumer_id)`, `update_spend(consumer_id, cost)` y `log_request(...)`.
+  * Configurar la conexión a `finops.db` en `database.py`.
+  * Definir los esquemas/tablas en `models.py` (consumers y logs, guardando los JSON crudos).
+  * Programar funciones: `check_budget(consumer_id)`, `update_spend(...)` y `log_request(...)`.
 
 ### 🧠 3. El Cerebro (Enrutamiento IA) -> Asignado a: Hugo Enriquez Jimenez
 **Objetivo:** Decidir qué modelo usar en cada momento y conectarse a Ollama.
 * **Stack:** Python + `httpx`.
+* **Archivos:** `app/core/router.py` y `app/core/config.py`
 * **Tareas:**
-  * Crear `router.py`.
-  * Implementar **Criterio 1 (Complejidad):** Si el prompt tiene menos de N caracteres o no requiere razonamiento profundo, enviar a `llama3.2:3b`. Si es complejo, a `mistral:7b`.
-  * Implementar **Criterio 2 (FinOps):** Si el usuario ha consumido >90% de su presupuesto, forzar la caída a `llama3.2:3b` sin importar la complejidad del prompt (degradación controlada).
-  * Usar httpx.AsyncClient() para enviar el request HTTP a las URLs de Ollama sin bloquear el hilo de FastAPI y devolver el JSON de respuesta al Guardián.
+  * Guardar variables de entorno o URLs base en `config.py`.
+  * Implementar la lógica de enrutamiento en `router.py` (Criterio de Complejidad y Criterio FinOps).
+  * Usar `httpx.AsyncClient()` para conectarse de forma asíncrona a los contenedores locales.
 
 ### 📈 4. El Narrador (Dashboard FinOps) -> Asignado a: Jose Antonio Ponce Cerón
 **Objetivo:** Dar visibilidad a los gastos y justificar el ahorro para la demo.
 * **Stack:** Python + Streamlit.
+* **Archivo:** `dashboard/app.py`
 * **Tareas:**
-  * Crear `dashboard.py` que lea directamente de `finops.db`.
-  * Mostrar gráficos del gasto actual vs. presupuesto de los 2 consumidores.
-  * Mostrar métricas de ahorro: "X peticiones enviadas al modelo barato = $Y ahorrados".
-  * Refinar la interfaz gráfica para que luzca profesional ante los jueces.
+  * Leer directamente de la base de datos local SQLite.
+  * Mostrar gráficos del gasto actual vs. presupuesto.
+  * Mostrar métricas del ahorro conseguido gracias al "Cerebro".
 
 ---
 
