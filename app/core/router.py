@@ -63,6 +63,17 @@ PALABRAS_COMPLEJAS = {
     "gdpr", "criptografia", "encriptacion", "estrategico", "financiero", "balance"
 }
 
+PALABRAS_CAMBIO_RADICAL = {
+    "hola", "adios", "gracias", "ok", "perfecto", "tiempo", "clima", 
+    "chiste", "buenos", "dias", "noches", "tardes", "bien", "chao"
+}
+
+# Si el usuario dice algo corto pero usa estas palabras, MANTENEMOS el modelo complejo.
+PALABRAS_CONTINUIDAD = {
+    "resumen", "resume", "ejemplo", "explica", "escribe", "corrige", 
+    "modifica", "cambia", "esto", "eso", "aquello", "continua", "sigue", "amplia"
+}
+
 def _normalizar_texto(texto: str) -> str:
     texto_normalizado = unicodedata.normalize("NFKD", texto)
     texto_sin_tildes = "".join(
@@ -71,30 +82,53 @@ def _normalizar_texto(texto: str) -> str:
     return texto_sin_tildes.casefold()
 
 
-def evaluar_complejidad(prompt: str) -> str:
+def evaluar_complejidad(prompt: str, mensajes_completos: list) -> str:
     """
-    CRITERIO 1: Evalúa la complejidad mediante análisis semántico (O(n)).
-    Busca intersecciones entre las palabras del usuario y nuestro diccionario.
+    CRITERIO 1 Avanzado: El "Semáforo Inteligente".
+    Resuelve el dilema de la memoria pegajosa discriminando entre cambios
+    radicales de tema y necesidades de continuidad del contexto.
     """
-    # 1. Normalizar el texto para ignorar tildes y mayúsculas
+    # 1. Normalizar y aislar la ÚLTIMA pregunta del usuario (El Presente)
     prompt_normalizado = _normalizar_texto(prompt)
-    palabras_usuario = set(re.findall(r'\b\w+\b', prompt_normalizado))
+    palabras_prompt_actual = set(re.findall(r'\b\w+\b', prompt_normalizado))
 
-    # 2. Intersección con el diccionario técnico
-    palabras_encontradas = palabras_usuario.intersection(PALABRAS_COMPLEJAS)
-
-    if palabras_encontradas:
-        logger.info("Tarea técnica detectada (Palabras: %s). Modelo óptimo: mistral:7b", palabras_encontradas)
+    # REGLA B: COINCIDENCIA TÉCNICA DIRECTA (Caso: "Hazme el TFG")
+    # Si la pregunta de ahora mismo ya trae dinamita técnica, va a Mistral de cabeza.
+    if palabras_prompt_actual.intersection(PALABRAS_COMPLEJAS):
+        logger.info("🧠 [Router] Keyword compleja detectada en el prompt actual. Usando: mistral:7b")
         return "mistral:7b"
 
-    # 3. Fallback por longitud (Si es inusualmente largo, requiere más contexto)
+    # REGLA C: REVISIÓN INTELIGENTE DEL CACHÉ (Caso: "Hazme un resumen")
+    # Si la pregunta actual es ambigua pero requiere arrastrar contexto anterior:
+    if len(mensajes_completos) > 2 and palabras_prompt_actual.intersection(PALABRAS_CONTINUIDAD):
+        # Buscamos en el historial qué fue lo último que preguntó el usuario
+        ultimo_prompt_usuario = ""
+        for msg in reversed(mensajes_completos[:-1]):
+            if msg.get("role") == "user":
+                ultimo_prompt_usuario = _normalizar_texto(msg.get("content", ""))
+                break
+        
+        palabras_historial = set(re.findall(r"\b\w+\b", ultimo_prompt_usuario))
+        # Si veníamos de hablar de algo difícil en la caché, mantenemos el modelo potente
+        if palabras_historial.intersection(PALABRAS_COMPLEJAS):
+            logger.info("⏳ [Router] Manteniendo mistral:7b por arrastre e inercia del tema complejo anterior.")
+            return "mistral:7b"
+
+    # REGLA A: EL CORTAFUEGOS (Caso: "¿Dime el tiempo?")
+    # Si la pregunta actual es de cortesía o un tema radicalmente simple,
+    # ignoramos el historial anterior y forzamos Llama 3.2.
+    if palabras_prompt_actual.intersection(PALABRAS_CAMBIO_RADICAL) or len(prompt_normalizado) < 30:
+        logger.info("💥 [Router] Cambio radical de tema o cortesía detectado. Forzando: llama3.2:3b")
+        return "llama3.2:3b"
+
+    # REGLA D: FALLBACK POR LONGITUD DE TEXTO
     UMBRAL_CARACTERES = 400
-    if len(prompt) > UMBRAL_CARACTERES:
-        logger.info("Prompt largo sin palabras clave (%s chars). Modelo óptimo: mistral:7b", len(prompt))
+    if len(prompt_normalizado) > UMBRAL_CARACTERES:
+        logger.info("📏 [Router] Prompt largo sin palabras clave. Usando: mistral:7b")
         return "mistral:7b"
 
-    # 4. Por defecto: Tarea conversacional
-    logger.info("Tarea conversacional simple. Modelo óptimo: llama3.2:3b")
+    # Por defecto, si no hay motivos para usar el caro, usamos el barato
+    logger.info("🍃 [Router] Petición estándar suelta. Usando: llama3.2:3b")
     return "llama3.2:3b"
 
 async def enrutar_peticion(prompt: str, porcentaje_presupuesto_gastado: float, mensajes_completos: list, modelo_solicitado: str) -> tuple[dict, dict]:
@@ -107,7 +141,7 @@ async def enrutar_peticion(prompt: str, porcentaje_presupuesto_gastado: float, m
     metadata = {"rule": "Ninguna"}
 
     # 1. Aplicar Criterio 1: Complejidad del prompt (Ahora con palabras clave)
-    modelo_elegido = evaluar_complejidad(prompt)
+    modelo_elegido = evaluar_complejidad(prompt, mensajes_completos)
     if modelo_elegido != modelo_solicitado:
         metadata["rule"] = "Enrutamiento por Complejidad"
         
@@ -142,7 +176,7 @@ async def enrutar_peticion(prompt: str, porcentaje_presupuesto_gastado: float, m
             if isinstance(resp_json, dict) and "model" not in resp_json:
                 resp_json["model"] = modelo_elegido
 
-            return resp_json
+            return resp_json, metadata
 
     except httpx.HTTPStatusError as e:
         logger.exception("El proveedor de IA devolvió un error de estado")

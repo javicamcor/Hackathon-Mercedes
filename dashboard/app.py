@@ -218,6 +218,19 @@ presupuesto_total = df_consumers["presupuesto_maximo"].sum()
 ahorro_total = df_logs["ahorro_generado"].sum() if 'ahorro_generado' in df_logs.columns else 0.0
 peticiones_optimizadas = len(df_logs[df_logs["regla_aplicada"] != "Ninguna"]) if 'regla_aplicada' in df_logs.columns else 0
 
+# --- Alertas de presupuesto ---
+df_consumers = df_consumers.copy()
+if not df_consumers.empty:
+    df_consumers["porcentaje_gastado"] = df_consumers.apply(
+        lambda row: (row["gasto_actual"] / row["presupuesto_maximo"]) * 100 if row["presupuesto_maximo"] > 0 else 0,
+        axis=1,
+    )
+    consumidores_criticos = df_consumers[df_consumers["porcentaje_gastado"] >= 90]
+    consumidores_alerta = df_consumers[(df_consumers["porcentaje_gastado"] >= 80) & (df_consumers["porcentaje_gastado"] < 90)]
+else:
+    consumidores_criticos = df_consumers
+    consumidores_alerta = df_consumers
+
 # --- Layout del Dashboard ---
 st.markdown("<h1 class='header-title'>AI FinOps Proxy</h1>", unsafe_allow_html=True)
 st.markdown("<p class='header-subtitle'>Control de Gastos, Optimización y Gobernanza de IA Generativa</p>", unsafe_allow_html=True)
@@ -248,6 +261,20 @@ with col3:
             <div class="metric-label">Ahorro Generado ({peticiones_optimizadas} peticiones)</div>
         </div>
     ''', unsafe_allow_html=True)
+
+if not df_consumers.empty:
+    if not consumidores_criticos.empty:
+        critical_names = ", ".join(
+            f"{row['nombre']} ({row['porcentaje_gastado']:.1f}%)" for _, row in consumidores_criticos.iterrows()
+        )
+        st.error(f"Presupuesto crítico detectado en: {critical_names}")
+    elif not consumidores_alerta.empty:
+        alert_names = ", ".join(
+            f"{row['nombre']} ({row['porcentaje_gastado']:.1f}%)" for _, row in consumidores_alerta.iterrows()
+        )
+        st.warning(f"Equipos cerca del límite de presupuesto: {alert_names}")
+    else:
+        st.success("Todos los equipos están por debajo del 80% de su presupuesto.")
 
 st.write("---")
 
