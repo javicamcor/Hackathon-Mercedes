@@ -24,10 +24,13 @@ def init_db():
                    CREATE TABLE IF NOT EXISTS logs (
                                                        id INTEGER PRIMARY KEY AUTOINCREMENT,
                                                        consumer_name TEXT,
+                                                       requested_model TEXT,
                                                        provider_model TEXT,
                                                        prompt_tokens INTEGER,
                                                        completion_tokens INTEGER,
                                                        total_cost REAL,
+                                                       applied_rule TEXT,
+                                                       savings REAL,
                                                        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
                    )
                    ''')
@@ -63,27 +66,27 @@ def check_budget(name):
     has_budget = consumer["current_spend"] < consumer["budget_limit"]
     return has_budget, consumer
 
-def log_usage(consumer_name, model, prompt_tokens, completion_tokens, cost):
+def log_usage(consumer_name, requested_model, provider_model, prompt_tokens, completion_tokens, total_cost, applied_rule, savings):
     """Registra la llamada y actualiza el gasto del consumidor."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
     # 1. Insertar el log
     cursor.execute('''
-                   INSERT INTO logs (consumer_name, provider_model, prompt_tokens, completion_tokens, total_cost)
-                   VALUES (?, ?, ?, ?, ?)
-                   ''', (consumer_name, model, prompt_tokens, completion_tokens, cost))
+                   INSERT INTO logs (consumer_name, requested_model, provider_model, prompt_tokens, completion_tokens, total_cost, applied_rule, savings)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                   ''', (consumer_name, requested_model, provider_model, prompt_tokens, completion_tokens, total_cost, applied_rule, savings))
 
     # 2. Actualizar el gasto acumulado del consumidor
     cursor.execute('''
                    UPDATE consumers
                    SET current_spend = current_spend + ?
                    WHERE name = ?
-                   ''', (cost, consumer_name))
+                   ''', (total_cost, consumer_name))
 
     conn.commit()
     conn.close()
-    print(f"Log guardado: {consumer_name} gastó ${cost:.6f} en {model}")
+    print(f"Log guardado: {consumer_name} gastó ${total_cost:.6f} en {provider_model} (Ahorro: ${savings:.6f})")
 
 # --- FUNCIONES DE CACHÉ ---
 

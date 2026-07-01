@@ -83,22 +83,25 @@ def evaluar_complejidad(prompt: str) -> str:
     print(f"   -> [Cerebro] Tarea conversacional simple. Modelo óptimo: llama3.2:3b")
     return "llama3.2:3b"
 
-async def enrutar_peticion(prompt: str, porcentaje_presupuesto_gastado: float, mensajes_completos: list) -> dict:
+async def enrutar_peticion(prompt: str, porcentaje_presupuesto_gastado: float, mensajes_completos: list) -> tuple:
     """
     Función principal de El Cerebro (Módulo 3).
     Decide el modelo, aplica políticas FinOps de ahorro y gestiona la llamada HTTP asíncrona.
+    Returns: (respuesta_json, modelo_elegido, regla_aplicada)
     """
     print(f"\n[Cerebro] Evaluando enrutamiento. Gasto actual del consumidor: {porcentaje_presupuesto_gastado:.2f}%")
 
     # 1. Aplicar Criterio 1: Complejidad del prompt (Ahora con palabras clave)
     modelo_elegido = evaluar_complejidad(prompt)
     url_destino = PROVEEDOR_A_URL if modelo_elegido == "llama3.2:3b" else PROVEEDOR_B_URL
+    regla_aplicada = "None" if modelo_elegido == "mistral:7b" else "Simple Task"
 
     # 2. Aplicar Criterio 2: FinOps (Degradación controlada de servicio por presupuesto crítico)
     if porcentaje_presupuesto_gastado >= 90.0 and modelo_elegido == "mistral:7b":
         print("   ⚠️ [Cerebro] ¡Alerta FinOps! Consumo >= 90%. Forzando degradación a llama3.2:3b para mitigar costes.")
         modelo_elegido = "llama3.2:3b"
         url_destino = PROVEEDOR_A_URL
+        regla_aplicada = "Budget Degradation"
 
     # 3. Construir el cuerpo de la petición (Payload) compatible con OpenAI / Ollama
     payload = {
@@ -115,15 +118,15 @@ async def enrutar_peticion(prompt: str, porcentaje_presupuesto_gastado: float, m
             respuesta = await client.post(url_destino, json=payload, timeout=30.0)
             respuesta.raise_for_status()
 
-            # Devolvemos el JSON tal cual responde Ollama
-            return respuesta.json()
+            # Devolvemos el JSON tal cual responde Ollama, junto con los metadatos de enrutamiento
+            return respuesta.json(), modelo_elegido, regla_aplicada
 
     except httpx.HTTPStatusError as e:
         print(f" [Cerebro] El proveedor de IA devolvió un error de estado: {e}")
-        return {"error": "Error interno del proveedor de IA", "detalles": str(e)}
+        return {"error": "Error interno del proveedor de IA", "detalles": str(e)}, modelo_elegido, regla_aplicada
     except httpx.RequestError as e:
         print(f" [Cerebro] Error de red al intentar conectar con el proveedor: {e}")
-        return {"error": "No se pudo establecer conexión con el motor de IA", "detalles": str(e)}
+        return {"error": "No se pudo establecer conexión con el motor de IA", "detalles": str(e)}, modelo_elegido, regla_aplicada
 
 # --- BLOQUE DE PRUEBA LOCAL EN CONSOLA ---
 if __name__ == "__main__":
