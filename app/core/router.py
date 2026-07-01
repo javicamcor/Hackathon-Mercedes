@@ -142,18 +142,6 @@ async def enrutar_peticion(prompt: str, porcentaje_presupuesto_gastado: float, m
             if isinstance(resp_json, dict) and "model" not in resp_json:
                 resp_json["model"] = modelo_elegido
 
-            # Aseguramos que `usage` exista; si no, estimamos a partir del prompt y del texto devuelto
-            if isinstance(resp_json, dict) and ("usage" not in resp_json or not resp_json.get("usage")):
-                # Intentamos extraer texto de la respuesta
-                texto_respuesta = None
-                try:
-                    texto_respuesta = resp_json.get("choices", [])[0].get("message", {}).get("content")
-                except Exception:
-                    texto_respuesta = None
-
-                p_tokens, c_tokens = _estimate_tokens_from_text(prompt, texto_respuesta)
-                resp_json["usage"] = {"prompt_tokens": p_tokens, "completion_tokens": c_tokens, "total_tokens": p_tokens + c_tokens}
-
             return resp_json
 
     except httpx.HTTPStatusError as e:
