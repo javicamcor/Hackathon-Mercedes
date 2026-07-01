@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import re
+import unicodedata
 
 import httpx
 
@@ -62,13 +63,22 @@ PALABRAS_COMPLEJAS = {
     "gdpr", "criptografia", "encriptacion", "estrategico", "financiero", "balance"
 }
 
+def _normalizar_texto(texto: str) -> str:
+    texto_normalizado = unicodedata.normalize("NFKD", texto)
+    texto_sin_tildes = "".join(
+        caracter for caracter in texto_normalizado if not unicodedata.combining(caracter)
+    )
+    return texto_sin_tildes.casefold()
+
+
 def evaluar_complejidad(prompt: str) -> str:
     """
     CRITERIO 1: Evalúa la complejidad mediante análisis semántico (O(n)).
     Busca intersecciones entre las palabras del usuario y nuestro diccionario.
     """
-    # 1. Extraer palabras en minúsculas ignorando signos de puntuación
-    palabras_usuario = set(re.findall(r'\b\w+\b', prompt.lower()))
+    # 1. Normalizar el texto para ignorar tildes y mayúsculas
+    prompt_normalizado = _normalizar_texto(prompt)
+    palabras_usuario = set(re.findall(r'\b\w+\b', prompt_normalizado))
 
     # 2. Intersección con el diccionario técnico
     palabras_encontradas = palabras_usuario.intersection(PALABRAS_COMPLEJAS)
@@ -125,8 +135,26 @@ async def enrutar_peticion(prompt: str, porcentaje_presupuesto_gastado: float, m
             respuesta = await client.post(url_destino, json=payload, timeout=30.0)
             respuesta.raise_for_status()
 
-            # Devolvemos el JSON tal cual responde Ollama
-            return respuesta.json(), metadata
+            # Devolvemos el JSON tal cual responde Ollama, pero enriquecemos si faltan campos
+            resp_json = respuesta.json()
+
+            # Aseguramos que `model` exista en la respuesta
+            if isinstance(resp_json, dict) and "model" not in resp_json:
+                resp_json["model"] = modelo_elegido
+
+            # Aseguramos que `usage` exista; si no, estimamos a partir del prompt y del texto devuelto
+            if isinstance(resp_json, dict) and ("usage" not in resp_json or not resp_json.get("usage")):
+                # Intentamos extraer texto de la respuesta
+                texto_respuesta = None
+                try:
+                    texto_respuesta = resp_json.get("choices", [])[0].get("message", {}).get("content")
+                except Exception:
+                    texto_respuesta = None
+
+                p_tokens, c_tokens = _estimate_tokens_from_text(prompt, texto_respuesta)
+                resp_json["usage"] = {"prompt_tokens": p_tokens, "completion_tokens": c_tokens, "total_tokens": p_tokens + c_tokens}
+
+            return resp_json
 
     except httpx.HTTPStatusError as e:
         logger.exception("El proveedor de IA devolvió un error de estado")
