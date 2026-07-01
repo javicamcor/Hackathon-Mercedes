@@ -124,7 +124,7 @@ if conn:
             total_cost as coste_total, 
             IFNULL(applied_rule, 'Ninguna') as regla_aplicada,
             IFNULL(savings, 0.0) as ahorro_generado,
-            timestamp 
+            timestamp
         FROM logs
     """, conn)
     conn.close()
@@ -168,6 +168,24 @@ if conn:
                 break
         if 'ahorro_generado' not in df_logs.columns:
             df_logs['ahorro_generado'] = 0.0
+
+        # Porcentaje de ahorro: se calcula usando el coste del modelo solicitado frente al coste real.
+        # Si no tenemos coste solicitado explícito en la BD, aproximamos con el coste real y la ratio
+        # de tokens entre modelos usando la media esperada.
+        def _estimate_requested_cost(row):
+            if row['modelo_solicitado'] == row['modelo_usado']:
+                return row['coste_total'] + row['ahorro_generado']
+            # Si se enruta desde mistral a llama, asumimos ~18% menos tokens en llama.
+            if row['modelo_solicitado'] == 'mistral:7b' and row['modelo_usado'] == 'llama3.2:3b':
+                return row['coste_total'] / 0.82
+            # En otros casos, tomamos el coste real como referencia conservadora.
+            return max(row['coste_total'], row['coste_total'] + row['ahorro_generado'])
+
+        df_logs['coste_referencia'] = df_logs.apply(_estimate_requested_cost, axis=1)
+        df_logs['savings_pct'] = df_logs.apply(
+            lambda r: (r['ahorro_generado'] / r['coste_referencia'] * 100.0) if r['coste_referencia'] and r['coste_referencia'] > 0 else 0.0,
+            axis=1,
+        )
 else:
     st.stop()
 
@@ -175,6 +193,7 @@ else:
 gasto_total = df_consumers["gasto_actual"].sum()
 presupuesto_total = df_consumers["presupuesto_maximo"].sum()
 ahorro_total = df_logs["ahorro_generado"].sum() if 'ahorro_generado' in df_logs.columns else 0.0
+ahorro_pct_medio = df_logs["savings_pct"].mean() if 'savings_pct' in df_logs.columns and not df_logs.empty else 0.0
 peticiones_optimizadas = len(df_logs[df_logs["regla_aplicada"] != "Ninguna"]) if 'regla_aplicada' in df_logs.columns else 0
 
 # --- Layout del Dashboard ---
@@ -207,6 +226,8 @@ with col3:
             <div class="metric-label">Ahorro Generado ({peticiones_optimizadas} peticiones)</div>
         </div>
     ''', unsafe_allow_html=True)
+
+st.caption(f"Porcentaje medio de ahorro: {ahorro_pct_medio:.2f}%")
 
 st.write("---")
 
@@ -335,14 +356,31 @@ with tab3:
     if not df_logs.empty and 'regla_aplicada' in df_logs.columns:
         df_rules = df_logs[df_logs['regla_aplicada'] != 'Ninguna']
         if not df_rules.empty:
-            df_ahorro_por_regla = df_rules.groupby('regla_aplicada')['ahorro_generado'].sum().reset_index()
-            
+            df_ahorro_por_regla = df_rules.groupby('regla_aplicada').agg(
+                ahorro_generado=('ahorro_generado', 'sum'),
+                coste_referencia=('coste_referencia', 'sum')
+            ).reset_index()
+            df_ahorro_por_regla['savings_pct'] = df_ahorro_por_regla.apply(
+                lambda r: (r['ahorro_generado'] / r['coste_referencia'] * 100.0) if r['coste_referencia'] and r['coste_referencia'] > 0 else 0.0,
+                axis=1,
+            )
+
             fig_rules = px.bar(df_ahorro_por_regla, x='ahorro_generado', y='regla_aplicada', orientation='h',
                                title="Ahorro Generado por Regla de Enrutamiento ($)",
                                color='regla_aplicada', text_auto='.4f')
             fig_rules.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font={'color': "white"},
                                   xaxis_title="Ahorro ($)", yaxis_title="Regla")
             st.plotly_chart(fig_rules, use_container_width=True)
+
+            st.dataframe(
+                df_ahorro_por_regla[["regla_aplicada", "ahorro_generado", "coste_referencia", "savings_pct"]],
+                use_container_width=True,
+                column_config={
+                    "ahorro_generado": st.column_config.NumberColumn("Ahorro ($)", format="%.6f"),
+                    "coste_referencia": st.column_config.NumberColumn("Coste de referencia ($)", format="%.6f"),
+                    "savings_pct": st.column_config.NumberColumn("Ahorro (%)", format="%.2f%%"),
+                },
+            )
         else:
             st.info("No se han activado reglas de optimización todavía.")
             
@@ -359,5 +397,7 @@ with tab3:
             column_config={
                 "coste_total": st.column_config.NumberColumn("Coste ($)", format="%.5f"),
                 "ahorro_generado": st.column_config.NumberColumn("Ahorro ($)", format="%.5f")
+                ,"coste_referencia": st.column_config.NumberColumn("Coste ref. ($)", format="%.5f"),
+                "savings_pct": st.column_config.NumberColumn("Ahorro (%)", format="%.2f%%")
             }
         )

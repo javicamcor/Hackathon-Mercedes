@@ -3,6 +3,15 @@ import datetime
 import hashlib  # Añadido para generar el hash de la caché
 
 DB_NAME = "finops.db"
+LLAMA_TOKEN_RATIO_VS_MISTRAL = 0.82  # llama usa ~18% menos tokens que mistral
+
+
+def _ensure_column(cursor, table_name: str, column_name: str, column_definition: str):
+    """Añade una columna si no existe para mantener compatibilidad con bases ya creadas."""
+    cursor.execute(f"PRAGMA table_info({table_name})")
+    existing_columns = {row[1] for row in cursor.fetchall()}
+    if column_name not in existing_columns:
+        cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_definition}")
 
 def init_db():
     """Crea las tablas si no existen."""
