@@ -58,7 +58,7 @@ async def chat_completions(
     has_budget, consumer_data = check_budget(x_consumer_id)
     if not has_budget:
         mensaje_bloqueo = f"¡BLOQUEO! El equipo '{x_consumer_id}' ha agotado su presupuesto de ${consumer_data['budget_limit']}."
-        print(f"🚨 [ALERTA FINOPS] {mensaje_bloqueo}")
+        print(f"[ALERTA FINOPS] {mensaje_bloqueo}")
         log_alert(x_consumer_id, mensaje_bloqueo)
         raise HTTPException(status_code=402, detail="Presupuesto agotado")
         
@@ -66,7 +66,7 @@ async def chat_completions(
     porcentaje_gastado = (consumer_data["current_spend"] / consumer_data["budget_limit"]) * 100
     if porcentaje_gastado >= 80.0:
         mensaje_alerta = f"¡ATENCIÓN! El equipo '{x_consumer_id}' está al límite de su presupuesto. Consumo actual: {porcentaje_gastado:.2f}%"
-        print(f"🚨 [ALERTA FINOPS] {mensaje_alerta} 🚨")
+        print(f"[ALERTA FINOPS] {mensaje_alerta}")
         log_alert(x_consumer_id, mensaje_alerta)
         
     modelo_solicitado = request.model

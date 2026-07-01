@@ -129,7 +129,7 @@ def log_alert(consumer_name, message):
                    ''', (consumer_name, message))
     conn.commit()
     conn.close()
-    print(f"🚨 Alerta guardada en BD para {consumer_name}: {message}")
+    print(f"[BD ALERTA] Alerta guardada en BD para {consumer_name}: {message}")
 
 # --- FUNCIONES DE CACHÉ ---
 
