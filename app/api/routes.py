@@ -108,6 +108,7 @@ async def chat_completions(
         log_usage(x_consumer_id, modelo_solicitado, "caché", 0, 0, 0.0, "Caché Semántica", coste_solicitado)
         respuesta_cache = _construir_respuesta_cache(modelo_solicitado, texto_cacheado, p_tokens=0, c_tokens=0)
         respuesta_cache["savings"] = coste_solicitado
+        respuesta_cache["requested_cost"] = coste_solicitado
         return respuesta_cache
 
     # Paso D: Enrutamiento Real
@@ -145,7 +146,7 @@ async def chat_completions(
     # Paso G: Guardar Caché
     try:
         texto_generado = ia_response["choices"][0]["message"]["content"]
-        guardar_en_cache(prompt_usuario, texto_generado, modelo_real)
+        guardar_en_cache(prompt_usuario, texto_generado, modelo_real, original_cost=coste_solicitado)
     except (KeyError, IndexError) as e:
         print(f"-> [Advertencia] No se pudo guardar en caché (estructura inesperada): {e}")
 

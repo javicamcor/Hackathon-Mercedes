@@ -1,3 +1,4 @@
+import json
 import sqlite3
 import datetime
 import hashlib  # Añadido para generar el hash de la caché
@@ -137,21 +138,35 @@ def buscar_en_cache(prompt):
 
     if resultado:
         print("⚡ Devolviendo respuesta guardada en caché (Coste: $0.00)")
-        return {"respuesta": resultado[0], "modelo": resultado[1]}
+        respuesta_texto, modelo_usado = resultado
+        try:
+            payload = json.loads(respuesta_texto)
+            return {
+                "respuesta": payload.get("respuesta", respuesta_texto),
+                "modelo": payload.get("modelo", modelo_usado),
+                "savings": payload.get("original_cost", payload.get("savings", 0.0)),
+            }
+        except (TypeError, json.JSONDecodeError):
+            return {"respuesta": respuesta_texto, "modelo": modelo_usado, "savings": 0.0}
     return None
 
-def guardar_en_cache(prompt, respuesta_texto, modelo):
+def guardar_en_cache(prompt, respuesta_texto, modelo, original_cost=0.0):
     """Guarda la respuesta en la base de datos para futuras consultas."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
 
     prompt_hash = _generar_hash(prompt)
+    payload = json.dumps({
+        "respuesta": respuesta_texto,
+        "modelo": modelo,
+        "original_cost": original_cost,
+    }, ensure_ascii=False)
 
-    # Usamos INSERT OR IGNORE por si hay duplicados
+    # Usamos INSERT OR REPLACE para mantener actualizada la metadata de caché.
     cursor.execute('''
-                   INSERT OR IGNORE INTO cache (prompt_hash, respuesta_texto, modelo_usado)
+                   INSERT OR REPLACE INTO cache (prompt_hash, respuesta_texto, modelo_usado)
                    VALUES (?, ?, ?)
-                   ''', (prompt_hash, respuesta_texto, modelo))
+                   ''', (prompt_hash, payload, modelo))
 
     conn.commit()
     conn.close()

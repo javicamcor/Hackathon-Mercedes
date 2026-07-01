@@ -367,6 +367,15 @@ with tab3:
     if not df_logs.empty and 'regla_aplicada' in df_logs.columns:
         df_rules = df_logs[df_logs['regla_aplicada'] != 'Ninguna']
         if not df_rules.empty:
+            df_rules = df_rules.copy()
+            df_rules['coste_referencia'] = df_rules['coste_total'] + df_rules['ahorro_generado']
+            df_rules['savings_pct'] = df_rules.apply(
+                lambda r: max(0.0, min(100.0, (r['ahorro_generado'] / r['coste_referencia'] * 100.0))) if r['coste_referencia'] and r['coste_referencia'] > 0 else 0.0,
+                axis=1,
+            )
+
+            st.markdown("### Desglose de ahorro por regla")
+
             df_ahorro_por_regla = df_rules.groupby('regla_aplicada').agg(
                 ahorro_generado=('ahorro_generado', 'sum'),
                 coste_referencia=('coste_referencia', 'sum')
@@ -384,11 +393,10 @@ with tab3:
             st.plotly_chart(fig_rules, use_container_width=True)
 
             st.dataframe(
-                df_ahorro_por_regla[["regla_aplicada", "ahorro_generado", "coste_referencia", "savings_pct"]],
+                df_ahorro_por_regla[["regla_aplicada", "ahorro_generado", "savings_pct"]],
                 use_container_width=True,
                 column_config={
                     "ahorro_generado": st.column_config.NumberColumn("Ahorro ($)", format="%.6f"),
-                    "coste_referencia": st.column_config.NumberColumn("Coste de referencia ($)", format="%.6f"),
                     "savings_pct": st.column_config.NumberColumn("Ahorro (%)", format="%.2f%%"),
                 },
             )
