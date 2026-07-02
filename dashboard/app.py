@@ -443,7 +443,7 @@ with tab3:
     st.subheader("🧾 Últimas Peticiones (Registro de Auditoría)")
     if not df_logs.empty:
         # Formatear la tabla para mostrar mejor
-        df_display = df_logs.sort_values(by="timestamp", ascending=False).head(20).drop(columns=['model_used', 'timestamp', 'fecha'], errors='ignore')
+        df_display = df_logs.sort_values(by="timestamp", ascending=False).head(20).drop(columns=['model_used', 'fecha'], errors='ignore')
         
         # Eliminar o renombrar columnas para que sea más claro
         st.dataframe(
@@ -453,7 +453,8 @@ with tab3:
                 "coste_total": st.column_config.NumberColumn("Coste ($)", format="%.5f"),
                 "ahorro_generado": st.column_config.NumberColumn("Ahorro ($)", format="%.5f")
                 ,"coste_referencia": st.column_config.NumberColumn("Coste ref. ($)", format="%.5f"),
-                "savings_pct": st.column_config.NumberColumn("Ahorro (%)", format="%.2f%%")
+                "savings_pct": st.column_config.NumberColumn("Ahorro (%)", format="%.2f%%"),
+                "timestamp": st.column_config.DatetimeColumn("Fecha y Hora", format="DD/MM/YYYY HH:mm:ss")
             }
         )
 
