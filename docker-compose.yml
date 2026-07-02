@@ -1,4 +1,40 @@
 services:
+  # ==============================================================
+  # APP SERVICES (FastAPI Backend + Streamlit Dashboard)
+  # ==============================================================
+  backend:
+    build: .
+    container_name: finops-backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./:/app
+    environment:
+      - AI_FINOPS_PROVIDER_A_URL=http://provider-a.ai.local:11434/v1/chat/completions
+      - AI_FINOPS_PROVIDER_B_URL=http://provider-b.ai.local:11434/v1/chat/completions
+    networks:
+      - ai_finops_network
+    depends_on:
+      - ollama-provider-a
+      - ollama-provider-b
+
+  frontend:
+    build: .
+    container_name: finops-frontend
+    command: streamlit run dashboard/app.py --server.address 0.0.0.0
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./:/app
+    networks:
+      - ai_finops_network
+    depends_on:
+      - backend
+
+  # ==============================================================
+  # INFRASTRUCTURE (Ollama Models)
+  # ==============================================================
   # Provider A — Ollama serving llama3.2:3b (simulates a cheap, fast model)
   ollama-provider-a:
     image: ollama/ollama:latest
@@ -26,7 +62,6 @@ services:
       start_period: 30s
 
   # Provider B — Ollama serving mistral:7b (simulates a more capable, pricier model)
-  # Runs on a separate port to simulate a distinct provider API
   ollama-provider-b:
     image: ollama/ollama:latest
     container_name: ollama-provider-b
