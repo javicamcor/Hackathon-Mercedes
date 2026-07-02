@@ -78,15 +78,7 @@ def _seleccionar_mejor_modelo(nivel_requerido: int, modelo_solicitado: str) -> t
         modelo_ideal = min(modelos_validos.items(), key=lambda x: x[1]["precio_in"] + x[1]["precio_out"])[0]
 
     if modelo_solicitado and modelo_solicitado in REGISTRO_MODELOS:
-        precio_solicitado = REGISTRO_MODELOS[modelo_solicitado]["precio_in"] + REGISTRO_MODELOS[modelo_solicitado]["precio_out"]
-        precio_ideal = REGISTRO_MODELOS[modelo_ideal]["precio_in"] + REGISTRO_MODELOS[modelo_ideal]["precio_out"]
-
-        if modelo_ideal != modelo_solicitado:
-            if precio_ideal < precio_solicitado:
-                return modelo_ideal, f"Optimización Downgrade (Nivel {nivel_requerido})"
-            else:
-                return modelo_solicitado, "Respeto a Elección Económica"
-        return modelo_ideal, "Elección Inicial Óptima"
+        return modelo_solicitado, "Elección Explícita Respetada"
 
     return modelo_ideal, f"Enrutamiento Automático (Nivel {nivel_requerido})"
 
