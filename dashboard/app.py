@@ -16,7 +16,7 @@ st.set_page_config(
 # --- Estilos Personalizados (CSS) ---
 st.markdown("""
 <style>
-    /* Tipografía moderna y fondo oscuro premium */
+    /* Tipografía moderna y colores adaptables a tema claro/oscuro */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
     
     html, body, [class*="css"] {
@@ -24,20 +24,20 @@ st.markdown("""
     }
     
     .stApp {
-        background-color: #0f172a;
-        color: #f8fafc;
+        background-color: var(--background-color);
+        color: var(--text-color);
     }
     
-    /* Tarjetas de métricas con Glassmorphism */
+    /* Tarjetas de métricas con Glassmorphism adaptable */
     .metric-card {
-        background: rgba(30, 41, 59, 0.7);
+        background: var(--secondary-background-color);
         backdrop-filter: blur(10px);
         -webkit-backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(128, 128, 128, 0.2);
         border-radius: 16px;
         padding: 24px;
         text-align: center;
-        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
         transition: transform 0.3s ease;
         margin-bottom: 2rem;
     }
@@ -49,7 +49,7 @@ st.markdown("""
     .metric-value {
         font-size: 2.5rem;
         font-weight: 800;
-        background: linear-gradient(90deg, #38bdf8, #818cf8);
+        background: linear-gradient(90deg, #0ea5e9, #6366f1);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         margin-bottom: 8px;
@@ -57,14 +57,15 @@ st.markdown("""
     
     .metric-label {
         font-size: 1rem;
-        color: #94a3b8;
+        color: var(--text-color);
+        opacity: 0.7;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 1px;
     }
     
     .savings-value {
-        background: linear-gradient(90deg, #34d399, #10b981);
+        background: linear-gradient(90deg, #10b981, #059669);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
     }
@@ -73,7 +74,7 @@ st.markdown("""
         font-size: 3.5rem;
         font-weight: 800;
         text-align: center;
-        background: linear-gradient(90deg, #f8fafc, #94a3b8);
+        background: linear-gradient(90deg, #0ea5e9, #6366f1);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         margin-bottom: 0.5rem;
@@ -82,7 +83,8 @@ st.markdown("""
     
     .header-subtitle {
         text-align: center;
-        color: #64748b;
+        color: var(--text-color);
+        opacity: 0.7;
         font-size: 1.2rem;
         margin-bottom: 3rem;
     }
@@ -95,26 +97,47 @@ st.markdown("""
 
     /* Estilos Premium para las Pestañas (Tabs) */
     button[data-baseweb="tab"] {
-        background-color: rgba(30, 41, 59, 0.4) !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        background-color: var(--secondary-background-color) !important;
+        border: 1px solid rgba(128, 128, 128, 0.2) !important;
         border-radius: 8px !important;
-        color: #94a3b8 !important;
+        color: var(--text-color) !important;
         padding: 10px 20px !important;
         margin-right: 0 !important;
         transition: all 0.3s ease !important;
     }
     
     button[data-baseweb="tab"]:hover {
-        background-color: rgba(30, 41, 59, 0.8) !important;
-        color: #f8fafc !important;
+        background-color: var(--secondary-background-color) !important;
+        opacity: 0.8 !important;
+        color: var(--text-color) !important;
+    }
+    
+    /* Mostrar título en el nav superior (Header) adaptable */
+    header[data-testid="stHeader"] {
+        background-color: black !important;
+        background-image: none !important;
+        border-bottom: 1px solid rgba(128, 128, 128, 0.2) !important;
+    }
+    header[data-testid="stHeader"] * {
+        color: white !important;
+    }
+    header[data-testid="stHeader"]::before {
+        content: "AI FinOps Proxy";
+        color: white;
+        font-weight: 700;
+        font-size: 1.25rem;
+        padding-left: 1.5rem;
+        white-space: nowrap;
+        display: flex;
+        align-items: center;
     }
     
     button[data-baseweb="tab"][aria-selected="true"] {
-        background: linear-gradient(90deg, #38bdf8, #818cf8) !important;
+        background: linear-gradient(90deg, #0ea5e9, #6366f1) !important;
         border: none !important;
         color: white !important;
         font-weight: 600 !important;
-        box-shadow: 0 4px 15px rgba(56, 189, 248, 0.3) !important;
+        box-shadow: 0 4px 15px rgba(14, 165, 233, 0.3) !important;
     }
     
     div[data-baseweb="tab-highlight"] {
@@ -233,8 +256,7 @@ ahorro_pct_medio = df_logs["savings_pct"].mean() if 'savings_pct' in df_logs.col
 peticiones_optimizadas = len(df_logs[df_logs["regla_aplicada"] != "Ninguna"]) if 'regla_aplicada' in df_logs.columns else 0
 
 # --- Layout del Dashboard ---
-st.markdown("<h1 class='header-title'>AI FinOps Proxy</h1>", unsafe_allow_html=True)
-st.markdown("<p class='header-subtitle'>Control de Gastos, Optimización y Gobernanza de IA Generativa</p>", unsafe_allow_html=True)
+st.markdown("<p class='header-subtitle' style='margin-top: -1rem; margin-bottom: 2rem; font-size: 1.6rem; font-weight: 500;'>Control de Gastos, Optimización y Gobernanza de IA Generativa</p>", unsafe_allow_html=True)
 
 # 1. Tarjetas de Métricas Superiores
 col1, col2, col3 = st.columns(3)
@@ -280,25 +302,25 @@ with tab1:
             fig = go.Figure(go.Indicator(
                 mode = "gauge+number+delta",
                 value = row["gasto_actual"],
-                title = {'text': f"<b>{row['nombre']}</b><br><span style='color: #94a3b8; font-size:0.8em'>ID: {row['id']}</span>"},
+                title = {'text': f"<b>{row['nombre']}</b><br><span style='color: gray; font-size:0.8em'>ID: {row['id']}</span>"},
                 delta = {'reference': row["presupuesto_maximo"], 'increasing': {'color': "#ef4444"}, 'decreasing': {'color': "#10b981"}},
                 gauge = {
-                    'axis': {'range': [None, row["presupuesto_maximo"]], 'tickwidth': 1, 'tickcolor': "#475569"},
+                    'axis': {'range': [None, row["presupuesto_maximo"]], 'tickwidth': 1, 'tickcolor': "gray"},
                     'bar': {'color': color},
                     'bgcolor': "rgba(0,0,0,0)",
                     'borderwidth': 0,
                     'steps': [
-                        {'range': [0, row["presupuesto_maximo"]*0.75], 'color': "rgba(16, 185, 129, 0.1)"},
-                        {'range': [row["presupuesto_maximo"]*0.75, row["presupuesto_maximo"]*0.9], 'color': "rgba(245, 158, 11, 0.1)"},
-                        {'range': [row["presupuesto_maximo"]*0.9, row["presupuesto_maximo"]], 'color': "rgba(239, 68, 68, 0.1)"}],
+                        {'range': [0, row["presupuesto_maximo"]*0.75], 'color': "rgba(16, 185, 129, 0.2)"},
+                        {'range': [row["presupuesto_maximo"]*0.75, row["presupuesto_maximo"]*0.9], 'color': "rgba(245, 158, 11, 0.2)"},
+                        {'range': [row["presupuesto_maximo"]*0.9, row["presupuesto_maximo"]], 'color': "rgba(239, 68, 68, 0.2)"}],
                 }
             ))
             
-            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", font={'color': "white"}, margin=dict(l=20, r=20, t=90, b=20), height=300)
+            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", margin=dict(l=20, r=20, t=90, b=20), height=300)
             st.plotly_chart(fig, use_container_width=True)
             
     st.write("---")
-    st.subheader("Análisis de Modelos")
+    st.subheader("Análisis de peticiones")
     col_chart1, col_chart2 = st.columns(2)
     
     with col_chart1:
@@ -306,17 +328,17 @@ with tab1:
             df_modelo = df_logs.groupby("modelo_usado").size().reset_index(name="peticiones")
             fig_pie = px.pie(df_modelo, values='peticiones', names='modelo_usado', title='Peticiones por Modelo Usado',
                              color_discrete_sequence=px.colors.qualitative.Pastel)
-            fig_pie.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font={'color': "white"})
+            fig_pie.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)")
             st.plotly_chart(fig_pie, use_container_width=True)
         else:
             st.info("No hay datos de logs registrados aún.")
             
     with col_chart2:
         if not df_logs.empty:
-            df_costes = df_logs.groupby("modelo_usado")["coste_total"].sum().reset_index()
+            df_costes = df_logs[~df_logs["modelo_usado"].str.contains("Caché|Cache", case=False, na=False)].groupby("modelo_usado")["coste_total"].sum().reset_index()
             fig_bar = px.bar(df_costes, x='modelo_usado', y='coste_total', title='Coste Total por Modelo ($)',
                              color='modelo_usado', text_auto='.4f')
-            fig_bar.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font={'color': "white"},
+            fig_bar.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
                                   xaxis_title="Modelo", yaxis_title="Coste ($)")
             st.plotly_chart(fig_bar, use_container_width=True)
 
@@ -340,17 +362,23 @@ with tab2:
         
         if len(df_daily_cost) > 1:
             x = df_daily_cost['day_ordinal'].values
-            y = df_daily_cost['coste_acumulado'].values
+            y_daily = df_daily_cost['coste_total'].values
             
-            # Ajuste de regresión lineal (grado 1)
-            coeffs = np.polyfit(x, y, 1)
+            # Ajuste de regresión lineal (grado 1) sobre el coste DIARIO
+            coeffs = np.polyfit(x, y_daily, 1)
             poly_eqn = np.poly1d(coeffs)
             
             # Generar datos futuros (próximos 3 días)
             last_date = df_daily_cost['fecha'].iloc[-1]
             future_dates = [last_date + datetime.timedelta(days=i) for i in range(1, 4)]
             future_ordinals = [pd.to_datetime(d).toordinal() for d in future_dates]
-            future_costs = poly_eqn(future_ordinals)
+            
+            # Predecir costes diarios futuros (asegurando que no sean negativos)
+            future_daily_costs = np.maximum(0, poly_eqn(future_ordinals))
+            
+            # Calcular el coste acumulado futuro partiendo del último punto real
+            last_acumulado = df_daily_cost['coste_acumulado'].iloc[-1]
+            future_costs = last_acumulado + np.cumsum(future_daily_costs)
             
             # Construir DataFrame combinado para la gráfica
             df_hist = df_daily_cost[['fecha', 'coste_acumulado']].copy()
@@ -376,7 +404,7 @@ with tab2:
             # Añadir línea de presupuesto total
             fig_trend.add_hline(y=presupuesto_total, line_dash="dash", line_color="#ef4444", annotation_text="Presupuesto Global")
             
-            fig_trend.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font={'color': "white"},
+            fig_trend.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
                                   xaxis_title="Fecha", yaxis_title="Coste Acumulado ($)")
             
             st.plotly_chart(fig_trend, use_container_width=True)
@@ -410,7 +438,7 @@ with tab3:
         )
 
     if not df_logs.empty and 'regla_aplicada' in df_logs.columns:
-        df_rules = df_logs[~df_logs['regla_aplicada'].isin(['Ninguna', 'Elección Inicial Óptima'])]
+        df_rules = df_logs[~df_logs['regla_aplicada'].isin(['Ninguna', 'Elección Inicial Óptima', 'Elección Explícita Respetada', 'Enrutamiento Automático (Nivel 2)'])]
         if not df_rules.empty:
             df_rules = df_rules.copy()
             df_rules['coste_referencia'] = df_rules['coste_total'] + df_rules['ahorro_generado']
@@ -433,7 +461,7 @@ with tab3:
             fig_rules = px.bar(df_ahorro_por_regla, x='ahorro_generado', y='regla_aplicada', orientation='h',
                                title="Ahorro Generado por Regla de Enrutamiento ($)",
                                color='regla_aplicada', text_auto='.4f')
-            fig_rules.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font={'color': "white"},
+            fig_rules.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
                                   xaxis_title="Ahorro ($)", yaxis_title="Regla")
             st.plotly_chart(fig_rules, use_container_width=True)
         else:

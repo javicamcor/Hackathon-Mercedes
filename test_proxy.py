@@ -80,6 +80,9 @@ hacer_peticion("Auto Fácil (Enrutamiento Automático)", "equipo_desarrollo", "a
 # 3.2 Petición Automática Compleja -> Debería ir a mistral:7b
 hacer_peticion("Auto Complejo (Enrutamiento Automático)", "equipo_desarrollo", "auto", prompt_auto_dificil)
 
+# 3.3 Petición Automática desde Caché -> Mismo prompt que el test 2, debería tirar de caché gratis
+hacer_peticion("Auto desde Caché Semántica", "equipo_desarrollo", "auto", prompt_largo)
+
 # 4. Petición que rebasa presupuesto (Degradación FinOps) -> Forzará Llama3.2:3b aunque pidas Mistral
 # El equipo_marketing ya empieza con 1.95$ gastados de 2.00$ de presupuesto.
 hacer_peticion("Degradación por Presupuesto", "equipo_marketing", "mistral:7b", prompt_largo_marketing)
