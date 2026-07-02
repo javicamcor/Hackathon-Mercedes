@@ -181,6 +181,7 @@ if conn:
             total_cost as coste_total, 
             IFNULL(applied_rule, 'Ninguna') as regla_aplicada,
             IFNULL(savings, 0.0) as ahorro_generado,
+            IFNULL(latency_ms, 0.0) as latency_ms,
             timestamp
         FROM logs
     """, conn)
@@ -479,10 +480,11 @@ with tab3:
             use_container_width=True,
             column_config={
                 "coste_total": st.column_config.NumberColumn("Coste ($)", format="%.5f"),
-                "ahorro_generado": st.column_config.NumberColumn("Ahorro ($)", format="%.5f")
-                ,"coste_referencia": st.column_config.NumberColumn("Coste ref. ($)", format="%.5f"),
+                "ahorro_generado": st.column_config.NumberColumn("Ahorro ($)", format="%.5f"),
+                "coste_referencia": st.column_config.NumberColumn("Coste ref. ($)", format="%.5f"),
                 "savings_pct": st.column_config.NumberColumn("Ahorro (%)", format="%.2f%%"),
-                "timestamp": st.column_config.DatetimeColumn("Fecha y Hora", format="DD/MM/YYYY HH:mm:ss")
+                "timestamp": st.column_config.DatetimeColumn("Fecha y Hora", format="DD/MM/YYYY HH:mm:ss"),
+                "latency_ms": st.column_config.NumberColumn("Latencia (ms)", format="%.2f ms")
             }
         )
 

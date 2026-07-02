@@ -28,6 +28,7 @@ def init_db():
                         total_cost REAL,
                         applied_rule TEXT,
                         savings REAL,
+                        latency_ms REAL DEFAULT 0.0,
                         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
                    )
                    ''')
@@ -49,6 +50,12 @@ def init_db():
                         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
                    )
                    ''')
+
+    # Actualizar tabla si ya existe
+    try:
+        cursor.execute("ALTER TABLE logs ADD COLUMN latency_ms REAL DEFAULT 0.0")
+    except sqlite3.OperationalError:
+        pass
 
     conn.commit()
     conn.close()
@@ -87,15 +94,15 @@ def check_budget(name):
     has_budget = consumer["current_spend"] < consumer["budget_limit"]
     return has_budget, consumer
 
-def log_usage(consumer_name, requested_model, provider_model, prompt_tokens, completion_tokens, cost, applied_rule, savings):
+def log_usage(consumer_name, requested_model, provider_model, prompt_tokens, completion_tokens, cost, applied_rule, savings, latency_ms=0.0):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     timestamp_local = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     cursor.execute('''
-                   INSERT INTO logs (consumer_name, requested_model, provider_model, prompt_tokens, completion_tokens, total_cost, applied_rule, savings)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                   ''', (consumer_name, requested_model, provider_model, prompt_tokens, completion_tokens, cost, applied_rule, savings))
+                   INSERT INTO logs (consumer_name, requested_model, provider_model, prompt_tokens, completion_tokens, total_cost, applied_rule, savings, latency_ms)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   ''', (consumer_name, requested_model, provider_model, prompt_tokens, completion_tokens, cost, applied_rule, savings, latency_ms))
 
     cursor.execute('''
                    UPDATE logs
