@@ -362,20 +362,40 @@ with tab2:
         df_daily_cost['day_ordinal'] = pd.to_datetime(df_daily_cost['fecha']).apply(lambda x: x.toordinal())
         
         if len(df_daily_cost) > 1:
-            x = df_daily_cost['day_ordinal'].values
             y_daily = df_daily_cost['coste_total'].values
             
-            # Ajuste de regresión lineal (grado 1) sobre el coste DIARIO
-            coeffs = np.polyfit(x, y_daily, 1)
-            poly_eqn = np.poly1d(coeffs)
+            # Intentar usar Holt-Winters (Exponential Smoothing)
+            try:
+                from statsmodels.tsa.holtwinters import ExponentialSmoothing
+                
+                # Holt-Winters necesita al menos 3 datos para aplicar tendencia
+                trend = 'add' if len(y_daily) >= 3 else None
+                
+                model = ExponentialSmoothing(y_daily, trend=trend, seasonal=None, initialization_method="estimated")
+                fit_model = model.fit()
+                
+                # Predecir los próximos 3 días
+                future_daily_costs = fit_model.forecast(3)
+                future_daily_costs = np.maximum(0, future_daily_costs) # Evitar predicciones negativas
+                
+            except ImportError:
+                # Fallback a Regresión Lineal si statsmodels no está instalado o hay error
+                x = df_daily_cost['day_ordinal'].values
+                coeffs = np.polyfit(x, y_daily, 1)
+                poly_eqn = np.poly1d(coeffs)
+                
+                last_date = df_daily_cost['fecha'].iloc[-1]
+                future_dates_fallback = [last_date + datetime.timedelta(days=i) for i in range(1, 4)]
+                future_ordinals = [pd.to_datetime(d).toordinal() for d in future_dates_fallback]
+                future_daily_costs = np.maximum(0, poly_eqn(future_ordinals))
+                
+            except Exception as e:
+                # Fallback de seguridad extrema
+                future_daily_costs = np.array([y_daily[-1]] * 3)
             
-            # Generar datos futuros (próximos 3 días)
+            # Generar fechas futuras
             last_date = df_daily_cost['fecha'].iloc[-1]
             future_dates = [last_date + datetime.timedelta(days=i) for i in range(1, 4)]
-            future_ordinals = [pd.to_datetime(d).toordinal() for d in future_dates]
-            
-            # Predecir costes diarios futuros (asegurando que no sean negativos)
-            future_daily_costs = np.maximum(0, poly_eqn(future_ordinals))
             
             # Calcular el coste acumulado futuro partiendo del último punto real
             last_acumulado = df_daily_cost['coste_acumulado'].iloc[-1]
