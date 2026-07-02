@@ -89,7 +89,11 @@ services:
 
 volumes:
   ollama_provider_a:
+    external: true
+    name: hackathonmercedes_ollama_provider_a
   ollama_provider_b:
+    external: true
+    name: hackathonmercedes_ollama_provider_b
 
 networks:
   ai_finops_network:
