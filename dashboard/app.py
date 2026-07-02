@@ -86,6 +86,40 @@ st.markdown("""
         font-size: 1.2rem;
         margin-bottom: 3rem;
     }
+    
+    /* Centrar contenedor de pestañas */
+    div[data-baseweb="tab-list"] {
+        justify-content: center !important;
+        gap: 10px !important;
+    }
+
+    /* Estilos Premium para las Pestañas (Tabs) */
+    button[data-baseweb="tab"] {
+        background-color: rgba(30, 41, 59, 0.4) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 8px !important;
+        color: #94a3b8 !important;
+        padding: 10px 20px !important;
+        margin-right: 0 !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    button[data-baseweb="tab"]:hover {
+        background-color: rgba(30, 41, 59, 0.8) !important;
+        color: #f8fafc !important;
+    }
+    
+    button[data-baseweb="tab"][aria-selected="true"] {
+        background: linear-gradient(90deg, #38bdf8, #818cf8) !important;
+        border: none !important;
+        color: white !important;
+        font-weight: 600 !important;
+        box-shadow: 0 4px 15px rgba(56, 189, 248, 0.3) !important;
+    }
+    
+    div[data-baseweb="tab-highlight"] {
+        display: none !important; /* Ocultar la barra azul por defecto debajo de la pestaña activa */
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -127,11 +161,22 @@ if conn:
             timestamp
         FROM logs
     """, conn)
+    
+    # Obtener alertas
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='alerts'")
+    if cursor.fetchone():
+        df_alerts = pd.read_sql_query("SELECT id, consumer_name, message, timestamp FROM alerts ORDER BY timestamp DESC", conn)
+    else:
+        df_alerts = pd.DataFrame(columns=["id", "consumer_name", "message", "timestamp"])
+        
+    if not df_alerts.empty:
+        df_alerts['timestamp'] = pd.to_datetime(df_alerts['timestamp']) + pd.Timedelta(hours=2)
+        
     conn.close()
     
     # Convertir timestamp a datetime para gráficas temporales
     if not df_logs.empty:
-        df_logs['timestamp'] = pd.to_datetime(df_logs['timestamp'])
+        df_logs['timestamp'] = pd.to_datetime(df_logs['timestamp']) + pd.Timedelta(hours=2)
         # Normalizar nombres de columnas para compatibilidad entre mock y DB real
         # Model usado
         model_cols = ['modelo_usado', 'provider_model', 'model_used']
@@ -221,7 +266,7 @@ with col3:
 st.write("---")
 
 # TABS PRINCIPALES
-tab1, tab2, tab3 = st.tabs(["📊 Visión General", "📈 Predicciones de Gasto", "🧾 Auditoría e Impacto"])
+tab1, tab2, tab3, tab4 = st.tabs(["VISIÓN GENERAL", "PREDICCIONES DE GASTO", "AUDITORÍA E IMPACTO", "ALERTAS FINOPS"])
 
 with tab1:
     st.subheader("Control de Presupuesto por Equipo")
@@ -249,7 +294,7 @@ with tab1:
                 }
             ))
             
-            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", font={'color': "white"}, margin=dict(l=20, r=20, t=50, b=20), height=300)
+            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", font={'color': "white"}, margin=dict(l=20, r=20, t=90, b=20), height=300)
             st.plotly_chart(fig, use_container_width=True)
             
     st.write("---")
@@ -365,7 +410,7 @@ with tab3:
         )
 
     if not df_logs.empty and 'regla_aplicada' in df_logs.columns:
-        df_rules = df_logs[df_logs['regla_aplicada'] != 'Ninguna']
+        df_rules = df_logs[~df_logs['regla_aplicada'].isin(['Ninguna', 'Elección Inicial Óptima'])]
         if not df_rules.empty:
             df_rules = df_rules.copy()
             df_rules['coste_referencia'] = df_rules['coste_total'] + df_rules['ahorro_generado']
@@ -391,15 +436,6 @@ with tab3:
             fig_rules.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font={'color': "white"},
                                   xaxis_title="Ahorro ($)", yaxis_title="Regla")
             st.plotly_chart(fig_rules, use_container_width=True)
-
-            st.dataframe(
-                df_ahorro_por_regla[["regla_aplicada", "ahorro_generado", "savings_pct"]],
-                use_container_width=True,
-                column_config={
-                    "ahorro_generado": st.column_config.NumberColumn("Ahorro ($)", format="%.6f"),
-                    "savings_pct": st.column_config.NumberColumn("Ahorro (%)", format="%.2f%%"),
-                },
-            )
         else:
             st.info("No se han activado reglas de optimización todavía.")
             
@@ -407,7 +443,7 @@ with tab3:
     st.subheader("🧾 Últimas Peticiones (Registro de Auditoría)")
     if not df_logs.empty:
         # Formatear la tabla para mostrar mejor
-        df_display = df_logs.sort_values(by="timestamp", ascending=False).head(20)
+        df_display = df_logs.sort_values(by="timestamp", ascending=False).head(20).drop(columns=['model_used', 'fecha'], errors='ignore')
         
         # Eliminar o renombrar columnas para que sea más claro
         st.dataframe(
@@ -417,6 +453,23 @@ with tab3:
                 "coste_total": st.column_config.NumberColumn("Coste ($)", format="%.5f"),
                 "ahorro_generado": st.column_config.NumberColumn("Ahorro ($)", format="%.5f")
                 ,"coste_referencia": st.column_config.NumberColumn("Coste ref. ($)", format="%.5f"),
-                "savings_pct": st.column_config.NumberColumn("Ahorro (%)", format="%.2f%%")
+                "savings_pct": st.column_config.NumberColumn("Ahorro (%)", format="%.2f%%"),
+                "timestamp": st.column_config.DatetimeColumn("Fecha y Hora", format="DD/MM/YYYY HH:mm:ss")
             }
         )
+
+with tab4:
+    st.subheader("Registro Histórico de Alertas")
+    if not df_alerts.empty:
+        st.dataframe(
+            df_alerts, 
+            use_container_width=True, 
+            column_config={
+                "id": "ID Alerta", 
+                "consumer_name": "Equipo Consumidor", 
+                "message": "Mensaje de Alerta", 
+                "timestamp": st.column_config.DatetimeColumn("Fecha y Hora", format="DD/MM/YYYY HH:mm:ss")
+            }
+        )
+    else:
+        st.info("✅ No hay alertas registradas en el sistema.")

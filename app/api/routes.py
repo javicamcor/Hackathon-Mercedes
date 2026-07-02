@@ -3,7 +3,8 @@ from typing import List, Optional
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
-from app.db.database import check_budget, log_usage, buscar_en_cache, guardar_en_cache, LLAMA_TOKEN_RATIO_VS_MISTRAL
+
+from app.db.database import check_budget, log_usage, buscar_en_cache, guardar_en_cache, log_alert
 from app.core.router import enrutar_peticion, PRECIOS
 
 router = APIRouter()
@@ -78,15 +79,26 @@ async def chat_completions(
 
     print(f"-> [Interceptor] Consumidor identificado: {x_consumer_id}")
     
+    if not request.messages:
+        raise HTTPException(status_code=400, detail="El array de mensajes no puede estar vacío.")
+        
     # Paso A: Verificar Presupuesto
     has_budget, consumer_data = check_budget(x_consumer_id)
     if not has_budget:
-        raise HTTPException(status_code=402, detail="Presupuesto agotado")
+        if isinstance(consumer_data, str):
+            print(f"-> [Interceptor] Error: {consumer_data} ({x_consumer_id})")
+            raise HTTPException(status_code=401, detail="Consumidor no registrado en el sistema")
         
+        mensaje_bloqueo = f"¡BLOQUEO! El equipo '{x_consumer_id}' ha agotado su presupuesto de ${consumer_data['budget_limit']}."
+        print(f"[ALERTA FINOPS] {mensaje_bloqueo}")
+        log_alert(x_consumer_id, mensaje_bloqueo)
+        raise HTTPException(status_code=402, detail="Presupuesto agotado")
     # Paso B: Alerta FinOps
     porcentaje_gastado = (consumer_data["current_spend"] / consumer_data["budget_limit"]) * 100
     if porcentaje_gastado >= 80.0:
-        print(f"🚨 [ALERTA FINOPS] ¡ATENCIÓN! El equipo '{x_consumer_id}' está al límite de su presupuesto. Consumo actual: {porcentaje_gastado:.2f}% 🚨")
+        mensaje_alerta = f"¡ATENCIÓN! El equipo '{x_consumer_id}' está al límite de su presupuesto. Consumo actual: {porcentaje_gastado:.2f}%"
+        print(f"[ALERTA FINOPS] {mensaje_alerta}")
+        log_alert(x_consumer_id, mensaje_alerta)
         
     modelo_solicitado = request.model
     
@@ -96,12 +108,12 @@ async def chat_completions(
     if cache_result:
         print("-> [Caché] ¡Acierto! Devolviendo respuesta cacheada (Coste 0).")
         # Aseguramos extraer texto (soportando posible formato string o dict/tuple devuelto por la db)
-        texto_cacheado = cache_result if isinstance(cache_result, str) else cache_result[0] if isinstance(cache_result, tuple) else cache_result.get("respuesta", str(cache_result))
+        texto_cacheado = cache_result.get("respuesta") if isinstance(cache_result, dict) else cache_result
         
         # Calculate theoretical cost for savings
         tarifas_solicitado = PRECIOS.get(modelo_solicitado, {"entrada": 0, "salida": 0})
-        p_tokens = max(1, len(prompt_usuario) // 4)
-        c_tokens = max(1, len(texto_cacheado) // 4)
+        p_tokens = max(1, len(prompt_usuario) // 3) 
+        c_tokens = max(1, len(texto_cacheado) // 3)
         coste_solicitado = (p_tokens * tarifas_solicitado["entrada"] / 1_000_000) + (c_tokens * tarifas_solicitado["salida"] / 1_000_000)
         
         # En caché usamos el coste solicitado como referencia para que el dashboard pueda mostrar el ahorro.

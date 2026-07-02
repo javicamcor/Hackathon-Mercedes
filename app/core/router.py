@@ -1,12 +1,23 @@
 import asyncio
+import os
 import logging
 import re
+import unicodedata
 
 import httpx
 
-# Configuración de los Proveedores (URLs locales configuradas en el docker-compose del Starter Kit)
-PROVEEDOR_A_URL = "http://localhost:11434/v1/chat/completions"
-PROVEEDOR_B_URL = "http://localhost:11435/v1/chat/completions"
+# Configuración de los Proveedores.
+# Las URLs pueden sobrescribirse por variables de entorno para evitar tocar código.
+PROVEEDORES = {
+    "provider-a": {
+        "url": os.getenv("AI_FINOPS_PROVIDER_A_URL", "http://localhost:11434/v1/chat/completions"),
+        "models": {"llama3.2:3b"},
+    },
+    "provider-b": {
+        "url": os.getenv("AI_FINOPS_PROVIDER_B_URL", "http://localhost:11435/v1/chat/completions"),
+        "models": {"mistral:7b"},
+    },
+}
 
 # Precios de referencia por cada 1,000,000 de tokens (según la tabla del README)
 PRECIOS = {
@@ -15,6 +26,14 @@ PRECIOS = {
 }
 
 logger = logging.getLogger(__name__)
+
+
+def _obtener_proveedor_por_modelo(modelo: str) -> dict:
+    for nombre_proveedor, configuracion in PROVEEDORES.items():
+        if modelo in configuracion.get("models", set()):
+            return {"name": nombre_proveedor, **configuracion}
+
+    return {"name": "provider-a", **PROVEEDORES["provider-a"]}
 
 # =====================================================================
 # DICCIONARIO SEMÁNTICO DE TAREAS COMPLEJAS
@@ -62,29 +81,92 @@ PALABRAS_COMPLEJAS = {
     "gdpr", "criptografia", "encriptacion", "estrategico", "financiero", "balance"
 }
 
-def evaluar_complejidad(prompt: str) -> str:
-    """
-    CRITERIO 1: Evalúa la complejidad mediante análisis semántico (O(n)).
-    Busca intersecciones entre las palabras del usuario y nuestro diccionario.
-    """
-    # 1. Extraer palabras en minúsculas ignorando signos de puntuación
-    palabras_usuario = set(re.findall(r'\b\w+\b', prompt.lower()))
+PALABRAS_CAMBIO_RADICAL = {
+    "hola", "adios", "gracias", "ok", "perfecto", "tiempo", "clima", 
+    "chiste", "buenos", "dias", "noches", "tardes", "bien", "chao"
+}
 
-    # 2. Intersección con el diccionario técnico
-    palabras_encontradas = palabras_usuario.intersection(PALABRAS_COMPLEJAS)
+# Si el usuario dice algo corto pero usa estas palabras, MANTENEMOS el modelo complejo.
+PALABRAS_CONTINUIDAD = {
+    "resumen", "resume", "ejemplo", "explica", "escribe", "corrige", 
+    "modifica", "cambia", "esto", "eso", "aquello", "continua", "sigue", "amplia"
+}
 
-    if palabras_encontradas:
-        logger.info("Tarea técnica detectada (Palabras: %s). Modelo óptimo: mistral:7b", palabras_encontradas)
+def _normalizar_texto(texto: str) -> str:
+    texto_normalizado = unicodedata.normalize("NFKD", texto)
+    texto_sin_tildes = "".join(
+        caracter for caracter in texto_normalizado if not unicodedata.combining(caracter)
+    )
+    return texto_sin_tildes.casefold()
+
+def filtrar_datos_sensibles(prompt: str) -> str:
+    """
+    MÓDULO DE GOBERNANZA AVANZADO: Anonimiza datos estratégicos de Mercedes-Benz.
+    Protege VINs específicos, IDs de empleados corporativos y códigos de motores.
+    """
+    # 1. Emails generales y corporativos (@mercedes-benz.com, @daimler.com, etc.)
+    prompt_limpio = re.sub(r'[\w\.-]+@[\w\.-]+\.\w+', '[REDACTED_EMAIL]', prompt)
+    
+    # 2. VINs específicos de Mercedes-Benz (Empiezan por WDB, WDD, VAG + 14 caracteres)
+    prompt_limpio = re.sub(r'\b(WDB|WDD|VAG)[A-HJ-NPR-Z0-9]{14}\b', '[REDACTED_MERCEDES_VIN]', prompt_limpio, flags=re.IGNORECASE)
+    
+    # 3. IDs de credenciales de empleados (Letra C,D,E,U,X + 7 u 8 dígitos numéricos)
+    prompt_limpio = re.sub(r'\b[CDEUX]\d{7,8}\b', '[REDACTED_EMPLOYEE_ID]', prompt_limpio, flags=re.IGNORECASE)
+    
+    # 4. Códigos de motores protegidos (OM o M + 3 dígitos de propulsor, ej: OM654)
+    prompt_limpio = re.sub(r'\b(OM|M)\d{3}\b', '[REDACTED_ENGINE_CODE]', prompt_limpio, flags=re.IGNORECASE)
+    
+    return prompt_limpio
+
+def evaluar_complejidad(prompt: str, mensajes_completos: list) -> str:
+    """
+    CRITERIO 1 Avanzado: El "Semáforo Inteligente".
+    Resuelve el dilema de la memoria pegajosa discriminando entre cambios
+    radicales de tema y necesidades de continuidad del contexto.
+    """
+    # 1. Normalizar y aislar la ÚLTIMA pregunta del usuario (El Presente)
+    prompt_normalizado = _normalizar_texto(prompt)
+    palabras_prompt_actual = set(re.findall(r'\b\w+\b', prompt_normalizado))
+
+    # REGLA A: EL CORTAFUEGOS (Caso: "¿Dime el tiempo?")
+    # Si la pregunta actual es de cortesía o un tema radicalmente simple,
+    # ignoramos el historial anterior y forzamos Llama 3.2.
+    if palabras_prompt_actual.intersection(PALABRAS_CAMBIO_RADICAL) or (
+        len(prompt_normalizado) < 30 and not palabras_prompt_actual.intersection(PALABRAS_CONTINUIDAD)
+    ):
+        logger.info("💥 [Router] Cambio radical de tema o cortesía detectado. Forzando: llama3.2:3b")
+        return "llama3.2:3b"
+
+    # REGLA B: COINCIDENCIA TÉCNICA DIRECTA (Caso: "Hazme el TFG")
+    # Si la pregunta de ahora mismo ya trae dinamita técnica, va a Mistral de cabeza.
+    if palabras_prompt_actual.intersection(PALABRAS_COMPLEJAS):
+        logger.info("🧠 [Router] Keyword compleja detectada en el prompt actual. Usando: mistral:7b")
         return "mistral:7b"
 
-    # 3. Fallback por longitud (Si es inusualmente largo, requiere más contexto)
+    # REGLA C: REVISIÓN INTELIGENTE DEL CACHÉ (Caso: "Hazme un resumen")
+    # Si la pregunta actual es ambigua pero requiere arrastrar contexto anterior:
+    if len(mensajes_completos) > 2 and palabras_prompt_actual.intersection(PALABRAS_CONTINUIDAD):
+        # Buscamos en el historial qué fue lo último que preguntó el usuario
+        ultimo_prompt_usuario = ""
+        for msg in reversed(mensajes_completos[:-1]):
+            if msg.get("role") == "user":
+                ultimo_prompt_usuario = _normalizar_texto(msg.get("content", ""))
+                break
+        
+        palabras_historial = set(re.findall(r"\b\w+\b", ultimo_prompt_usuario))
+        # Si veníamos de hablar de algo difícil en la caché, mantenemos el modelo potente
+        if palabras_historial.intersection(PALABRAS_COMPLEJAS):
+            logger.info("⏳ [Router] Manteniendo mistral:7b por arrastre e inercia del tema complejo anterior.")
+            return "mistral:7b"
+
+    # REGLA D: FALLBACK POR LONGITUD DE TEXTO
     UMBRAL_CARACTERES = 400
-    if len(prompt) > UMBRAL_CARACTERES:
-        logger.info("Prompt largo sin palabras clave (%s chars). Modelo óptimo: mistral:7b", len(prompt))
+    if len(prompt_normalizado) > UMBRAL_CARACTERES:
+        logger.info("📏 [Router] Prompt largo sin palabras clave. Usando: mistral:7b")
         return "mistral:7b"
 
-    # 4. Por defecto: Tarea conversacional
-    logger.info("Tarea conversacional simple. Modelo óptimo: llama3.2:3b")
+    # Por defecto, si no hay motivos para usar el caro, usamos el barato
+    logger.info("🍃 [Router] Petición estándar suelta. Usando: llama3.2:3b")
     return "llama3.2:3b"
 
 async def enrutar_peticion(prompt: str, porcentaje_presupuesto_gastado: float, mensajes_completos: list, modelo_solicitado: str) -> tuple[dict, dict]:
@@ -92,22 +174,38 @@ async def enrutar_peticion(prompt: str, porcentaje_presupuesto_gastado: float, m
     Función principal de El Cerebro (Módulo 3).
     Decide el modelo, aplica políticas FinOps de ahorro y gestiona la llamada HTTP asíncrona.
     """
+
+    # ====== MÓDULO DE SEGURIDAD Y GOBERNANZA ======
+    prompt_anonimizado = filtrar_datos_sensibles(prompt)
+    if prompt_anonimizado != prompt:
+        logger.info("🛡️ [Gobernanza] Datos sensibles detectados. Prompt anonimizado con éxito antes de evaluar u operar.")
+        prompt = prompt_anonimizado  # Sobrescribimos la variable con el texto seguro
+        
+        # Opcional: Actualizamos también el último mensaje de la lista para que la IA lo reciba capado
+        if mensajes_completos and mensajes_completos[-1].get("role") == "user":
+            mensajes_completos[-1]["content"] = prompt_anonimizado
+    # ===============================================
+
     logger.info("Evaluando enrutamiento. Gasto actual del consumidor: %.2f%%", porcentaje_presupuesto_gastado)
 
-    metadata = {"rule": "Ninguna"}
+    metadata = {"rule": "Ninguna", "provider": "provider-a"}
 
     # 1. Aplicar Criterio 1: Complejidad del prompt (Ahora con palabras clave)
-    modelo_elegido = evaluar_complejidad(prompt)
+    modelo_elegido = evaluar_complejidad(prompt, mensajes_completos)
     if modelo_elegido != modelo_solicitado:
         metadata["rule"] = "Enrutamiento por Complejidad"
-        
-    url_destino = PROVEEDOR_A_URL if modelo_elegido == "llama3.2:3b" else PROVEEDOR_B_URL
+
+    proveedor_destino = _obtener_proveedor_por_modelo(modelo_elegido)
+    url_destino = proveedor_destino["url"]
+    metadata["provider"] = proveedor_destino["name"]
 
     # 2. Aplicar Criterio 2: FinOps (Degradación controlada de servicio por presupuesto crítico)
     if porcentaje_presupuesto_gastado >= 90.0 and modelo_elegido == "mistral:7b":
         logger.warning("Alerta FinOps: consumo >= 90%%. Forzando degradación a llama3.2:3b para mitigar costes.")
         modelo_elegido = "llama3.2:3b"
-        url_destino = PROVEEDOR_A_URL
+        proveedor_destino = _obtener_proveedor_por_modelo(modelo_elegido)
+        url_destino = proveedor_destino["url"]
+        metadata["provider"] = proveedor_destino["name"]
         metadata["rule"] = "Degradación FinOps"
 
     # 3. Construir el cuerpo de la petición (Payload) compatible con OpenAI / Ollama
@@ -125,8 +223,14 @@ async def enrutar_peticion(prompt: str, porcentaje_presupuesto_gastado: float, m
             respuesta = await client.post(url_destino, json=payload, timeout=30.0)
             respuesta.raise_for_status()
 
-            # Devolvemos el JSON tal cual responde Ollama
-            return respuesta.json(), metadata
+            # Devolvemos el JSON tal cual responde Ollama, pero enriquecemos si faltan campos
+            resp_json = respuesta.json()
+
+            # Aseguramos que `model` exista en la respuesta
+            if isinstance(resp_json, dict) and "model" not in resp_json:
+                resp_json["model"] = modelo_elegido
+
+            return resp_json, metadata
 
     except httpx.HTTPStatusError as e:
         logger.exception("El proveedor de IA devolvió un error de estado")

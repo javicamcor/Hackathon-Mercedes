@@ -54,6 +54,16 @@ def init_db():
                    )
                    ''')
 
+    # NUEVA TABLA: Alertas FinOps
+    cursor.execute('''
+                   CREATE TABLE IF NOT EXISTS alerts (
+                                                         id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                                         consumer_name TEXT,
+                                                         message TEXT,
+                                                         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+                   )
+                   ''')
+
     conn.commit()
     conn.close()
     print("Base de datos inicializada")
@@ -101,12 +111,19 @@ def log_usage(consumer_name, requested_model, provider_model, prompt_tokens, com
     """Registra la llamada y actualiza el gasto del consumidor."""
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
+    timestamp_local = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     # 1. Insertar el log
     cursor.execute('''
                    INSERT INTO logs (consumer_name, requested_model, provider_model, prompt_tokens, completion_tokens, total_cost, applied_rule, savings)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                    ''', (consumer_name, requested_model, provider_model, prompt_tokens, completion_tokens, cost, applied_rule, savings))
+
+    cursor.execute('''
+                   UPDATE logs
+                   SET timestamp = ?
+                   WHERE id = last_insert_rowid()
+                   ''', (timestamp_local,))
 
     # 2. Actualizar el gasto acumulado del consumidor
     cursor.execute('''
@@ -118,6 +135,18 @@ def log_usage(consumer_name, requested_model, provider_model, prompt_tokens, com
     conn.commit()
     conn.close()
     print(f"💰 Log guardado: {consumer_name} gastó ${cost:.6f} en {provider_model}")
+
+def log_alert(consumer_name, message):
+    """Registra una alerta en la base de datos."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute('''
+                   INSERT INTO alerts (consumer_name, message)
+                   VALUES (?, ?)
+                   ''', (consumer_name, message))
+    conn.commit()
+    conn.close()
+    print(f"[BD ALERTA] Alerta guardada en BD para {consumer_name}: {message}")
 
 # --- FUNCIONES DE CACHÉ ---
 
