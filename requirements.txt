@@ -1,1 +1,8 @@
 deep-translator
+fastapi
+uvicorn
+streamlit
+pandas
+plotly
+httpx
+statsmodels

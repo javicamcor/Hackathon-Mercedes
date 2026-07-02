@@ -83,6 +83,20 @@ def _normalizar_texto(texto: str) -> str:
     )
     return texto_sin_tildes.casefold()
 
+def comprimir_prompt(texto: str) -> str:
+    """
+    Técnica FinOps: Prompt Stripping.
+    Elimina espacios, tabulaciones y saltos de línea redundantes para reducir el coste de tokens de entrada.
+    """
+    if not texto:
+        return ""
+    # 1. Reemplazar múltiples saltos de línea o tabulaciones por un solo salto
+    texto_limpio = re.sub(r'[\r\n\t]+', '\n', texto)
+    # 2. Reemplazar múltiples espacios consecutivos por un solo espacio
+    texto_limpio = re.sub(r'[ ]+', ' ', texto_limpio)
+    # 3. Quitar espacios y saltos sobrantes al principio y al final
+    return texto_limpio.strip()
+
 def evaluar_complejidad(prompt: str) -> int:
     """
     Asigna el Nivel de Exigencia:
@@ -127,7 +141,13 @@ def _seleccionar_mejor_modelo(nivel_requerido: int, modelo_solicitado: str) -> t
     return modelo_ideal, f"Enrutamiento Automático (Nivel {nivel_requerido})"
 
 async def enrutar_peticion(prompt: str, porcentaje_presupuesto_gastado: float, mensajes_completos: list, modelo_solicitado: str) -> tuple[dict, dict]:
-    nivel_requerido = evaluar_complejidad(prompt)
+    
+    prompt_optimizado = comprimir_prompt(prompt)
+
+    if mensajes_completos and mensajes_completos[-1]["role"] == "user":
+        mensajes_completos[-1]["content"] = prompt_optimizado
+    
+    nivel_requerido = evaluar_complejidad(prompt_optimizado)
     modelo_elegido, regla_aplicada = _seleccionar_mejor_modelo(nivel_requerido, modelo_solicitado)
 
     if porcentaje_presupuesto_gastado >= 90.0:
