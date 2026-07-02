@@ -6,6 +6,7 @@ import unicodedata
 import time
 
 import httpx
+from deep_translator import GoogleTranslator
 
 # =====================================================================
 # CATÁLOGO ESCALABLE DE MODELOS
@@ -35,44 +36,44 @@ logger = logging.getLogger(__name__)
 # DICCIONARIO SEMÁNTICO
 # =====================================================================
 PALABRAS_COMPLEJAS = {
-    # 1. Lenguajes de Programación y Tecnologías
+    # 1. Programming Languages and Technologies
     "python", "javascript", "java", "c++", "c#", "sql", "html", "css", "php",
     "ruby", "swift", "golang", "rust", "bash", "shell", "powershell", "typescript",
     "docker", "kubernetes", "git", "linux", "aws", "azure", "gcp", "terraform",
     "kotlin", "scala", "dart", "perl", "haskell", "lua", "matlab", "r",
 
-    # 2. Conceptos de Desarrollo y Arquitectura
-    "api", "rest", "graphql", "json", "xml", "yaml", "regex", "debug", "refactoriza",
-    "compila", "despliegue", "frontend", "backend", "query", "consulta", "algoritmo",
-    "bucle", "funcion", "clase", "objeto", "asincrono", "framework", "react",
+    # 2. Development and Architecture Concepts
+    "api", "rest", "graphql", "json", "xml", "yaml", "regex", "debug", "refactor",
+    "compile", "deployment", "frontend", "backend", "query", "algorithm",
+    "loop", "function", "class", "object", "asynchronous", "framework", "react",
     "angular", "vue", "django", "flask", "fastapi", "node", "express", "spring",
-    "arquitectura", "escalabilidad", "rendimiento", "microservicios", "patrón",
-    "script", "código", "programar", "variable", "repositorio", "commit", "merge",
-    "pipeline", "ci/cd", "testing", "unitario", "mock", "middleware", "endpoint",
+    "architecture", "scalability", "performance", "microservices", "pattern",
+    "script", "code", "program", "variable", "repository", "commit", "merge",
+    "pipeline", "ci/cd", "testing", "unit", "mock", "middleware", "endpoint",
 
-    # 3. Datos, Bases de Datos y Formatos
-    "csv", "excel", "pandas", "dataframe", "scraping", "parsear", "extraer",
-    "transformar", "etl", "dashboard", "grafica", "visualizacion", "dataset",
+    # 3. Data, Databases and Formats
+    "csv", "excel", "pandas", "dataframe", "scraping", "parse", "extract",
+    "transform", "etl", "dashboard", "chart", "visualization", "dataset",
     "mysql", "postgres", "mongodb", "nosql", "redis", "elasticsearch", "supabase",
     "oracle", "sqlite", "cassandra", "hadoop", "spark", "kafka", "parquet",
 
-    # 4. Data Science, IA y Machine Learning
-    "machine", "learning", "ia", "deep", "redes", "neuronales", "nlp", "vision",
-    "entrenamiento", "prediccion", "clustering", "regresion", "clasificacion",
+    # 4. Data Science, AI and Machine Learning
+    "machine", "learning", "ai", "deep", "networks", "neural", "nlp", "vision",
+    "training", "prediction", "clustering", "regression", "classification",
     "tensor", "pytorch", "scikit", "llm", "prompt", "token", "embedding",
 
-    # 5. Razonamiento, Lógica y Matemáticas
-    "analiza", "evalua", "compara", "deduce", "justifica", "optimiza", "abstraccion",
-    "inferencia", "estadistica", "probabilidad", "matematicas", "calculo", "ecuacion",
-    "integral", "derivada", "matriz", "algebra", "fisica", "teoria", "teorema",
-    "demuestra", "logica", "hipotesis", "complejidad", "heuristica", "trigonometria",
-    "geometria", "aritmetica", "proporcion", "varianza", "distribucion",
+    # 5. Reasoning, Logic and Mathematics
+    "analyze", "evaluate", "compare", "deduce", "justify", "optimize", "abstraction",
+    "inference", "statistics", "probability", "mathematics", "calculus", "equation",
+    "integral", "derivative", "matrix", "algebra", "physics", "theory", "theorem",
+    "prove", "logic", "hypothesis", "complexity", "heuristic", "trigonometry",
+    "geometry", "arithmetic", "proportion", "variance", "distribution",
 
-    # 6. Documentación Profesional, Legal y Corporativa
-    "ensayo", "tesis", "informe", "contrato", "legal", "clausula", "patente",
-    "cientifico", "paper", "metodologia", "bibliografia", "citacion", "apa",
-    "normativa", "cumplimiento", "auditoria", "vulnerabilidad", "ciberseguridad",
-    "gdpr", "criptografia", "encriptacion", "estrategico", "financiero", "balance"
+    # 6. Professional, Legal and Corporate Documentation
+    "essay", "thesis", "report", "contract", "legal", "clause", "patent",
+    "scientific", "paper", "methodology", "bibliography", "citation", "apa",
+    "regulation", "compliance", "audit", "vulnerability", "cybersecurity",
+    "gdpr", "cryptography", "encryption", "strategic", "financial", "balance"
 }
 
 def _normalizar_texto(texto: str) -> str:
@@ -88,11 +89,21 @@ def evaluar_complejidad(prompt: str) -> int:
     - Nivel 2 (Mistral): DEBE tener palabras clave Y más de 400 caracteres.
     - Nivel 1 (Llama): Cualquier otra cosa (falla en uno o ambos requisitos).
     """
-    prompt_normalizado = _normalizar_texto(prompt)
+    try:
+        texto_a_traducir = prompt[:4500] if len(prompt) > 4500 else prompt
+        if texto_a_traducir.strip():
+            prompt_en = GoogleTranslator(source='auto', target='en').translate(texto_a_traducir)
+        else:
+            prompt_en = prompt
+    except Exception as e:
+        logger.error(f"Error translating prompt: {e}")
+        prompt_en = prompt
+
+    prompt_normalizado = _normalizar_texto(prompt_en)
     palabras_prompt_actual = set(re.findall(r'\b\w+\b', prompt_normalizado))
 
     tiene_palabras_complejas = bool(palabras_prompt_actual.intersection(PALABRAS_COMPLEJAS))
-    es_largo = len(prompt_normalizado) > 400
+    es_largo = len(prompt) > 400
 
     if tiene_palabras_complejas and es_largo:
         return 2  # Pasa al resto (Mistral)
