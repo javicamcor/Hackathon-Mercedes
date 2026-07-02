@@ -35,12 +35,44 @@ logger = logging.getLogger(__name__)
 # DICCIONARIO SEMÁNTICO
 # =====================================================================
 PALABRAS_COMPLEJAS = {
+    # 1. Lenguajes de Programación y Tecnologías
     "python", "javascript", "java", "c++", "c#", "sql", "html", "css", "php",
+    "ruby", "swift", "golang", "rust", "bash", "shell", "powershell", "typescript",
+    "docker", "kubernetes", "git", "linux", "aws", "azure", "gcp", "terraform",
+    "kotlin", "scala", "dart", "perl", "haskell", "lua", "matlab", "r",
+
+    # 2. Conceptos de Desarrollo y Arquitectura
     "api", "rest", "graphql", "json", "xml", "yaml", "regex", "debug", "refactoriza",
+    "compila", "despliegue", "frontend", "backend", "query", "consulta", "algoritmo",
+    "bucle", "funcion", "clase", "objeto", "asincrono", "framework", "react",
+    "angular", "vue", "django", "flask", "fastapi", "node", "express", "spring",
+    "arquitectura", "escalabilidad", "rendimiento", "microservicios", "patrón",
+    "script", "código", "programar", "variable", "repositorio", "commit", "merge",
+    "pipeline", "ci/cd", "testing", "unitario", "mock", "middleware", "endpoint",
+
+    # 3. Datos, Bases de Datos y Formatos
     "csv", "excel", "pandas", "dataframe", "scraping", "parsear", "extraer",
-    "machine", "learning", "ia", "deep", "redes", "nlp", "vision",
-    "analiza", "evalua", "compara", "deduce", "justifica", "optimiza",
-    "ensayo", "tesis", "informe", "contrato", "legal", "clausula"
+    "transformar", "etl", "dashboard", "grafica", "visualizacion", "dataset",
+    "mysql", "postgres", "mongodb", "nosql", "redis", "elasticsearch", "supabase",
+    "oracle", "sqlite", "cassandra", "hadoop", "spark", "kafka", "parquet",
+
+    # 4. Data Science, IA y Machine Learning
+    "machine", "learning", "ia", "deep", "redes", "neuronales", "nlp", "vision",
+    "entrenamiento", "prediccion", "clustering", "regresion", "clasificacion",
+    "tensor", "pytorch", "scikit", "llm", "prompt", "token", "embedding",
+
+    # 5. Razonamiento, Lógica y Matemáticas
+    "analiza", "evalua", "compara", "deduce", "justifica", "optimiza", "abstraccion",
+    "inferencia", "estadistica", "probabilidad", "matematicas", "calculo", "ecuacion",
+    "integral", "derivada", "matriz", "algebra", "fisica", "teoria", "teorema",
+    "demuestra", "logica", "hipotesis", "complejidad", "heuristica", "trigonometria",
+    "geometria", "aritmetica", "proporcion", "varianza", "distribucion",
+
+    # 6. Documentación Profesional, Legal y Corporativa
+    "ensayo", "tesis", "informe", "contrato", "legal", "clausula", "patente",
+    "cientifico", "paper", "metodologia", "bibliografia", "citacion", "apa",
+    "normativa", "cumplimiento", "auditoria", "vulnerabilidad", "ciberseguridad",
+    "gdpr", "criptografia", "encriptacion", "estrategico", "financiero", "balance"
 }
 
 def _normalizar_texto(texto: str) -> str:

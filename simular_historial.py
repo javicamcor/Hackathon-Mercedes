@@ -16,8 +16,8 @@ def simulate_data():
     # (consumer_name, requested_model, provider_model, prompt_tokens, completion_tokens, total_cost, applied_rule, savings, latency_ms, timestamp)
     logs_falsos = [
         # Gastos de anteayer
-        ("equipo_desarrollo", "mistral", "mistral", 100, 50, 0.30, "Ninguna", 0.0, 1500.5, anteayer),
-        ("equipo_marketing", "mistral", "mistral", 150, 75, 0.45, "Ninguna", 0.0, 1800.2, anteayer),
+        ("equipo_desarrollo", "mistral:7b", "mistral:7b", 100, 50, 0.30, "Ninguna", 0.0, 1500.5, anteayer),
+        ("equipo_marketing", "mistral:7b", "mistral:7b", 150, 75, 0.45, "Ninguna", 0.0, 1800.2, anteayer),
         
         # Gastos de ayer
         ("equipo_desarrollo", "mistral", "mistral", 200, 100, 0.60, "Ninguna", 0.0, 2200.0, ayer),
