@@ -3,6 +3,7 @@ import os
 import logging
 import re
 import unicodedata
+import time
 
 import httpx
 
@@ -101,7 +102,9 @@ async def enrutar_peticion(prompt: str, porcentaje_presupuesto_gastado: float, m
 
     try:
         async with httpx.AsyncClient() as client:
+            t0_http = time.time()
             respuesta = await client.post(url_destino, json=payload, timeout=300.0)
+            metadata["llm_latency_ms"] = (time.time() - t0_http) * 1000
             respuesta.raise_for_status()
             resp_json = respuesta.json()
             if isinstance(resp_json, dict) and "model" not in resp_json:

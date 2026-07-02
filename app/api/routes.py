@@ -35,6 +35,8 @@ async def chat_completions(
     request: ChatCompletionRequest,
     x_consumer_id: Optional[str] = Header(None, alias="X-Consumer-ID")
 ):
+    start_time = time.time()
+    
     if not x_consumer_id:
         raise HTTPException(status_code=400, detail="X-Consumer-ID header is required")
 
@@ -64,7 +66,8 @@ async def chat_completions(
             c_tokens_est = max(1, len(texto_cacheado) // 3)
             coste_ahorrado = (p_tokens_est * info_orig["precio_in"] / 1_000_000) + (c_tokens_est * info_orig["precio_out"] / 1_000_000)
 
-        log_usage(x_consumer_id, modelo_solicitado, "caché", 0, 0, 0.0, "Caché Semántica", coste_ahorrado)
+        latency_ms = round((time.time() - start_time) * 1000, 2)
+        log_usage(x_consumer_id, modelo_solicitado, "caché", 0, 0, 0.0, "Caché Semántica", coste_ahorrado, latency_ms)
         return _construir_respuesta_cache(modelo_original_cacheado, texto_cacheado, p_tokens=0, c_tokens=0)
 
     mensajes_completos = [{"role": msg.role, "content": msg.content} for msg in request.messages]
@@ -101,7 +104,10 @@ async def chat_completions(
     savings = max(0.0, coste_solicitado - coste_total)
     applied_rule = metadata.get("rule", "Ninguna")
 
-    log_usage(x_consumer_id, modelo_solicitado, modelo_real, prompt_tokens, completion_tokens, coste_total, applied_rule, savings)
+    llm_latency_ms = metadata.get("llm_latency_ms", 0.0)
+    latency_ms = round(max(0.01, ((time.time() - start_time) * 1000) - llm_latency_ms), 2)
+    
+    log_usage(x_consumer_id, modelo_solicitado, modelo_real, prompt_tokens, completion_tokens, coste_total, applied_rule, savings, latency_ms)
 
     try:
         texto_generado = ia_response["choices"][0]["message"]["content"]
