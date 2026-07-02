@@ -4,7 +4,7 @@ from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
 from app.db.database import check_budget, log_usage, buscar_en_cache, guardar_en_cache, log_alert
-from app.core.router import enrutar_peticion, REGISTRO_MODELOS
+from app.core.router import enrutar_peticion, REGISTRO_MODELOS, comprimir_prompt
 
 router = APIRouter()
 
@@ -52,7 +52,10 @@ async def chat_completions(
         log_alert(x_consumer_id, mensaje_alerta)
 
     modelo_solicitado = request.model
-    prompt_usuario = request.messages[-1].content
+
+    
+    prompt_usuario = comprimir_prompt(request.messages[-1].content)
+    request.messages[-1].content = prompt_usuario
 
     cache_result = buscar_en_cache(prompt_usuario)
     if cache_result:
